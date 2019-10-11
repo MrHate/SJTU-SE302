@@ -26,18 +26,22 @@
   A::Ty *ty;
   }
 
-%token<sym> ID
+%token <sym> ID
 %token <sval> STRING
 %token <ival> INT
 
 %token 
   COMMA COLON SEMICOLON LPAREN RPAREN LBRACK RBRACK 
   LBRACE RBRACE DOT 
-  PLUS MINUS TIMES DIVIDE EQ NEQ LT LE GT GE
-  AND OR ASSIGN
   ARRAY IF THEN ELSE WHILE FOR TO DO LET IN END OF 
   BREAK NIL
   FUNCTION VAR TYPE
+
+%nonassoc ASSIGN
+%left AND OR
+%nonassoc EQ NEQ LT LE GT GE
+%left PLUS MINUS
+%left TIMES DIVIDE
 
 %type <exp> exp expseq
 %type <explist> actuals  nonemptyactuals sequencing  sequencing_exps
@@ -63,7 +67,23 @@
 %%
 program:  exp  {absyn_root = $1;};
 
-exp:
+exp: lvalue {$$ = new A::VarExp(errormsg.tokPos, $1);}
+	|	NIL {$$ = new A::NilExp(errormsg.tokPos);}
+	|	INT {$$ = new A::IntExp(errormsg.tokPos, $1);}
+	| STRING {$$ = new A::StringExp(errormsg.tokPos, $1);}
+	| ID LPAREN actuals RPAREN {$$ = new A::CallExp(errormsg.tokPos, $1, $3);}
+	| exp PLUS exp {$$ = new A::OpExp(errormsg.tokPos, A::PLUS_OP, $1, $3);}
+	| exp MINUS exp {$$ = new A::OpExp(errormsg.tokPos, A::MINUS_OP, $1, $3);}
+	| exp TIMES exp {$$ = new A::OpExp(errormsg.tokPos, A::TIMES_OP, $1, $3);}
+	| exp DIVIDE exp {$$ = new A::OpExp(errormsg.tokPos, A::DIVIDE_OP, $1, $3);}
+	| exp EQ exp {$$ = new A::OpExp(errormsg.tokPos, A::EQ_OP, $1, $3);}
+	| exp NEQ exp {$$ = new A::OpExp(errormsg.tokPos, A::NEQ_OP, $1, $3);}
+	| exp LT exp {$$ = new A::OpExp(errormsg.tokPos, A::LT_OP, $1, $3);}
+	| exp LE exp {$$ = new A::OpExp(errormsg.tokPos, A::LE_OP, $1, $3);}
+	| exp GT exp {$$ = new A::OpExp(errormsg.tokPos, A::GT_OP, $1, $3);}
+	| exp GE exp {$$ = new A::OpExp(errormsg.tokPos, A::GE_OP, $1, $3);}
+	| exp AND exp {$$ = new A::IfExp(errormsg.tokPos, $1, $3, new A::IntExp(errormsg.tokPos, 0));}
+	| exp OR exp {$$ = new A::IfExp(errormsg.tokPos, $1, new A::IntExp(errormsg.tokPos, 1), $3);}
   ;
 
 vardec:  VAR ID ASSIGN exp  {$$ = new A::VarDec(errormsg.tokPos,$2, nullptr, $4);}
