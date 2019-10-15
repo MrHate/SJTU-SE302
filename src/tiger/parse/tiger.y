@@ -109,7 +109,7 @@ sequencing_exps: SEMICOLON exp sequencing_exps {$$ = new A::ExpList($2, $3);}
 
 lvalue: ID {$$ = new A::SimpleVar(errormsg.tokPos, $1);}
 	| lvalue DOT ID {$$ = new A::FieldVar(errormsg.tokPos, $1, $3);}
-	| lvalue LBRACK exp RBRACK {$$ = new A::SubscriptVar(errormsg.tokPos, $1, $3);}
+	| ID LBRACK exp RBRACK {$$ = new A::SubscriptVar(errormsg.tokPos, new A::SimpleVar(errormsg.tokPos, $1), $3);}
 	;
 vardec:  VAR ID ASSIGN exp  {$$ = new A::VarDec(errormsg.tokPos, $2, nullptr, $4);}
   |  VAR ID COLON ID ASSIGN exp  {$$ = new A::VarDec(errormsg.tokPos, $2, $4, $6);}
