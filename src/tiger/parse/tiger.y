@@ -96,6 +96,7 @@ exp: lvalue {$$ = new A::VarExp(errormsg.tokPos, $1);}
 	| LET decs IN expseq END {$$ = new A::LetExp(errormsg.tokPos, $2, $4);}
 	| ID LBRACK exp RBRACK OF exp {$$ = new A::ArrayExp(errormsg.tokPos, $1, $3, $6);}
 	| ID LBRACE rec_nonempty RBRACE {$$ = new A::RecordExp(errormsg.tokPos, $1, $3);}
+	| ID LBRACE RBRACE {$$ = new A::RecordExp(errormsg.tokPos, $1, nullptr);}
 	| LPAREN sequencing RPAREN {$$ = new A::SeqExp(errormsg.tokPos, $2);}
 	| LPAREN RPAREN {$$ = new A::VoidExp(errormsg.tokPos);}
 	| IF exp THEN exp ELSE exp {$$ = new A::IfExp(errormsg.tokPos, $2, $4, $6);}
@@ -110,6 +111,7 @@ sequencing_exps: SEMICOLON exp sequencing_exps {$$ = new A::ExpList($2, $3);}
 lvalue: ID {$$ = new A::SimpleVar(errormsg.tokPos, $1);}
 	| lvalue DOT ID {$$ = new A::FieldVar(errormsg.tokPos, $1, $3);}
 	| ID LBRACK exp RBRACK {$$ = new A::SubscriptVar(errormsg.tokPos, new A::SimpleVar(errormsg.tokPos, $1), $3);}
+	| lvalue LBRACK exp RBRACK {$$ = new A::SubscriptVar(errormsg.tokPos, $1, $3);}
 	;
 vardec:  VAR ID ASSIGN exp  {$$ = new A::VarDec(errormsg.tokPos, $2, nullptr, $4);}
   |  VAR ID COLON ID ASSIGN exp  {$$ = new A::VarDec(errormsg.tokPos, $2, $4, $6);}
