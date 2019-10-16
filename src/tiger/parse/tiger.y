@@ -2,8 +2,6 @@
 %scanner tiger/lex/scanner.h
 %baseclass-preinclude tiger/absyn/absyn.h
 
-%debug
-
  /*
   * Please don't modify the lines above.
   */
@@ -98,9 +96,10 @@ exp: lvalue {$$ = new A::VarExp(errormsg.tokPos, $1);}
 	| ID LBRACE rec_nonempty RBRACE {$$ = new A::RecordExp(errormsg.tokPos, $1, $3);}
 	| ID LBRACE RBRACE {$$ = new A::RecordExp(errormsg.tokPos, $1, nullptr);}
 	| LPAREN sequencing RPAREN {$$ = new A::SeqExp(errormsg.tokPos, $2);}
+	| LPAREN exp RPAREN {$$ = $2;}
 	| LPAREN RPAREN {$$ = new A::VoidExp(errormsg.tokPos);}
 	| IF exp THEN exp ELSE exp {$$ = new A::IfExp(errormsg.tokPos, $2, $4, $6);}
-	| IF exp THEN exp {$$ = new A::IfExp(errormsg.tokPos, $2, $4, new A::VoidExp(errormsg.tokPos));}
+	| IF exp THEN exp {$$ = new A::IfExp(errormsg.tokPos, $2, $4, nullptr);}
   ;
 expseq: sequencing {$$ = new A::SeqExp(errormsg.tokPos, $1);};
 sequencing: exp sequencing_exps {$$ = new A::ExpList($1, $2);};
