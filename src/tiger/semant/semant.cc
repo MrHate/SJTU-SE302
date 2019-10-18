@@ -37,8 +37,13 @@ namespace A {
 
 TY::Ty *SimpleVar::SemAnalyze(VEnvType venv, TEnvType tenv,
                               int labelcount) const {
-  // TODO: Put your codes here (lab4).
-  return TY::VoidTy::Instance();
+	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
+	if(ent == nullptr){
+		errormsg.Error(pos,"undefined symbol %s",sym->Name().c_str());
+		return TY::VoidTy::Instance();
+	}
+
+	return ent->ty;
 }
 
 TY::Ty *FieldVar::SemAnalyze(VEnvType venv, TEnvType tenv,
