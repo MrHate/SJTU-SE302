@@ -64,19 +64,16 @@ TY::Ty *VarExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 }
 
 TY::Ty *NilExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
-  // TODO: Put your codes here (lab4).
-  return TY::VoidTy::Instance();
+  return TY::NilTy::Instance();
 }
 
 TY::Ty *IntExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
-  // TODO: Put your codes here (lab4).
-  return TY::VoidTy::Instance();
+  return TY::IntTy::Instance();
 }
 
 TY::Ty *StringExp::SemAnalyze(VEnvType venv, TEnvType tenv,
                               int labelcount) const {
-  // TODO: Put your codes here (lab4).
-  return TY::VoidTy::Instance();
+  return TY::StringTy::Instance();
 }
 
 TY::Ty *CallExp::SemAnalyze(VEnvType venv, TEnvType tenv,
@@ -86,7 +83,24 @@ TY::Ty *CallExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 }
 
 TY::Ty *OpExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
-  // TODO: Put your codes here (lab4).
+	TY::Ty *left_ty = left->SemAnalyze(venv,tenv,labelcount),
+		*right_ty = right->SemAnalyze(venv,tenv,labelcount);
+
+	switch(oper){
+		case A::PLUS_OP:
+			if(!left_ty->IsSameType(TY::IntTy::Instance())){
+				errormsg.Error(left->pos,"integer required");
+				return TY::VoidTy::Instance();
+			}
+			if(!right_ty->IsSameType(TY::IntTy::Instance())){
+				errormsg.Error(right->pos,"integer required");
+				return TY::VoidTy::Instance();
+			}
+			return TY::IntTy::Instance();
+			break;
+		default:
+			;
+	}
   return TY::VoidTy::Instance();
 }
 
@@ -103,7 +117,25 @@ TY::Ty *SeqExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 
 TY::Ty *AssignExp::SemAnalyze(VEnvType venv, TEnvType tenv,
                               int labelcount) const {
-  // TODO: Put your codes here (lab4).
+	E::VarEntry *ent;
+	switch(var->kind){
+		case A::Var::SIMPLE:
+			ent = static_cast<E::VarEntry*>(venv->Look(static_cast<A::SimpleVar*>(var)->sym));
+			if(ent == nullptr){
+				//not found
+			}
+			if(ent->readonly){
+				errormsg.Error(pos,"loop variable can't be assigned");
+			}
+			break;
+		case A::Var::FIELD:
+			break;
+		case A::Var::SUBSCRIPT:
+			break;
+		default:
+			;
+	}
+
   return TY::VoidTy::Instance();
 }
 
@@ -114,13 +146,28 @@ TY::Ty *IfExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 
 TY::Ty *WhileExp::SemAnalyze(VEnvType venv, TEnvType tenv,
                              int labelcount) const {
-  // TODO: Put your codes here (lab4).
+	TY::Ty *body_ty = body->SemAnalyze(venv,tenv,labelcount);
+
+	if(!body_ty->IsSameType(TY::VoidTy::Instance()))
+		errormsg.Error(body->pos,"while body must produce no value");
   return TY::VoidTy::Instance();
 }
 
 TY::Ty *ForExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
-  // TODO: Put your codes here (lab4).
-  return TY::VoidTy::Instance();
+	TY::Ty *lo_ty = lo->SemAnalyze(venv,tenv,labelcount),
+		*hi_ty = hi->SemAnalyze(venv,tenv,labelcount);
+
+	venv->BeginScope();
+	venv->Enter(var,new E::VarEntry(TY::IntTy::Instance(),true));
+
+	if(!lo_ty->IsSameType(TY::IntTy::Instance()))
+		errormsg.Error(lo->pos,"for exp's range type is not integer");
+	if(!hi_ty->IsSameType(TY::IntTy::Instance()))
+		errormsg.Error(hi->pos,"for exp's range type is not integer");
+
+	TY::Ty *body_ty = body->SemAnalyze(venv,tenv,labelcount);
+	venv->EndScope();
+	return body_ty;
 }
 
 TY::Ty *BreakExp::SemAnalyze(VEnvType venv, TEnvType tenv,
