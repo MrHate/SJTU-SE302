@@ -41,4 +41,9 @@ bool Ty::IsSameType(Ty *expected) {
   return a == b;
 }
 
+std::string Ty::PrintActualTy() {
+	Ty *ty = ActualTy();
+	if(ty)return ty2str[ty->kind];
+}
+
 };  // namespace TY

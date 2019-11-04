@@ -18,6 +18,8 @@ class Ty {
   Ty *ActualTy();
   bool IsSameType(Ty *);
 
+	std::string PrintActualTy();
+
  protected:
   Ty(Kind kind) : kind(kind) {}
 };

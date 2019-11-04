@@ -47,21 +47,34 @@ TY::Ty *SimpleVar::SemAnalyze(VEnvType venv, TEnvType tenv,
 		return TY::VoidTy::Instance();
 	}
 
+#ifdef __DGY__DEBUG__
+	errormsg.Error(pos,"simplevar[type]%s",ent->ty->PrintActualTy().c_str());
+#endif
 	return ent->ty;
 }
 
 TY::Ty *FieldVar::SemAnalyze(VEnvType venv, TEnvType tenv,
                              int labelcount) const {
+// Get fieldlist from the lvalue(var)
+// then return the certain type
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"fieldvar[sym]"+sym->Name());
 #endif
-	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
-	if(ent == nullptr){
-		errormsg.Error(pos,"undefined symbol %s",sym->Name().c_str());
-		return TY::VoidTy::Instance();
+	TY::Ty *varty = var->SemAnalyze(venv,tenv,labelcount);
+	if(varty->kind == TY::Ty::RECORD){
+		TY::RecordTy *recty = static_cast<TY::RecordTy*>(varty);
+		TY::FieldList *p = recty->fields;
+		while(p){
+			if(p->head->name == sym)return p->head->ty;
+			p = p->tail;
+		}
+		errormsg.Error(pos,"no such a field %s",sym->Name().c_str());
+	}
+	else {
+		errormsg.Error(pos,"not a field var");
 	}
 
-	return ent->ty;
+	return TY::VoidTy::Instance();
 }
 
 TY::Ty *SubscriptVar::SemAnalyze(VEnvType venv, TEnvType tenv,
@@ -69,8 +82,18 @@ TY::Ty *SubscriptVar::SemAnalyze(VEnvType venv, TEnvType tenv,
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"subscriptvar");
 #endif
-	return var->SemAnalyze(venv,tenv,labelcount);
-  //return subscript->SemAnalyze(venv,tenv,labelcount);
+	TY::Ty *varty = var->SemAnalyze(venv,tenv,labelcount);
+	//return var->SemAnalyze(venv,tenv,labelcount);
+	if(varty->kind == TY::Ty::ARRAY){
+		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(varty);
+#ifdef __DGY__DEBUG__
+		errormsg.Error(pos,"[arraytype]%s",arrty->ty->PrintActualTy().c_str());
+#endif
+		return arrty->ty;
+	}
+	errormsg.Error(pos,"not a array var");
+
+	return TY::VoidTy::Instance();
 }
 
 TY::Ty *VarExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
@@ -89,7 +112,7 @@ TY::Ty *NilExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 
 TY::Ty *IntExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 #ifdef __DGY__DEBUG__
-	errormsg.Error(pos,"intexp[i]"+i);
+	errormsg.Error(pos,"intexp[i]%d",i);
 #endif
   return TY::IntTy::Instance();
 }
@@ -97,7 +120,7 @@ TY::Ty *IntExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 TY::Ty *StringExp::SemAnalyze(VEnvType venv, TEnvType tenv,
                               int labelcount) const {
 #ifdef __DGY__DEBUG__
-	errormsg.Error(pos,"stringexp[s]"+s);
+	errormsg.Error(pos,"stringexp[s]%s",s.c_str());
 #endif
   return TY::StringTy::Instance();
 }
@@ -107,7 +130,15 @@ TY::Ty *CallExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"callexp[func]"+func->Name());
 #endif
-  return TY::VoidTy::Instance();
+  E::EnvEntry *ent = venv->Look(func);
+	if(ent->kind == E::EnvEntry::FUN){
+		return static_cast<E::FunEntry*>(ent)->result;
+	}
+	else{
+		errormsg.Error(pos,"not a name of func");
+		return TY::VoidTy::Instance();
+	}
+
 }
 
 TY::Ty *OpExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
@@ -119,21 +150,38 @@ TY::Ty *OpExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 
 	if(!left_ty->IsSameType(right_ty)){
 			errormsg.Error(left->pos,"same type required");
+#ifdef __DGY__DEBUG__
+			errormsg.Error(pos,"[left]%s[right]%s",left_ty->PrintActualTy().c_str(),right_ty->PrintActualTy().c_str());
+#endif
 			return TY::VoidTy::Instance();
 	}
 
 	switch(oper){
 		case A::PLUS_OP:
+		case A::MINUS_OP:
+		case A::LT_OP:
+		case A::LE_OP:
+		case A::GT_OP:
+		case A::GE_OP:
 			if(!left_ty->IsSameType(TY::IntTy::Instance())){
 				errormsg.Error(left->pos,"integer required");
+#ifdef __DGY__DEBUG__
+				errormsg.Error(pos,"[left]"+left_ty->PrintActualTy());
+#endif
 				return TY::VoidTy::Instance();
 			}
 			if(!right_ty->IsSameType(TY::IntTy::Instance())){
 				errormsg.Error(right->pos,"integer required");
+#ifdef __DGY__DEBUG__
+				errormsg.Error(pos,"[right]"+right_ty->PrintActualTy());
+#endif
 				return TY::VoidTy::Instance();
 			}
 			return TY::IntTy::Instance();
 			break;
+		case A::EQ_OP:
+		case A::NEQ_OP:
+			return TY::IntTy::Instance();
 		default:
 			;
 	}
@@ -153,7 +201,8 @@ TY::Ty *RecordExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 		fl = fl->tail;
 		tyfl = new TY::FieldList(new TY::Field(p->name,p->exp->SemAnalyze(venv,tenv,labelcount)),tyfl);
 	}
-  return new TY::RecordTy(tyfl);
+  //return new TY::RecordTy(tyfl);
+	return tenv->Look(typ);
 }
 
 TY::Ty *SeqExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
@@ -200,17 +249,25 @@ TY::Ty *IfExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"ifexp");
 #endif
-	TY::Ty *flag = test->SemAnalyze(venv,tenv,labelcount), *res = TY::VoidTy::Instance();
-	if(flag){
-		res = then->SemAnalyze(venv,tenv,labelcount);
-		if(!elsee && !res->IsSameType(TY::VoidTy::Instance())){
+	TY::Ty *flag = test->SemAnalyze(venv,tenv,labelcount),
+		*thenty = then->SemAnalyze(venv,tenv,labelcount);
+	if(elsee){
+		TY::Ty *elsety = elsee->SemAnalyze(venv,tenv,labelcount);
+		if(!thenty->IsSameType(elsety)){
+			errormsg.Error(pos,"then exp and else exp type mismatch");
+
+#ifdef __DGY__DEBUG__
+			errormsg.Error(pos,"[then]"+thenty->PrintActualTy()+"[else]"+elsety->PrintActualTy());
+#endif
+		}
+		return thenty;
+	}
+	else {
+		if(!thenty->IsSameType(TY::VoidTy::Instance())){
 			errormsg.Error(pos,"if-then exp's body must produce no value");
 		}
+		return TY::VoidTy::Instance();
 	}
-	else if(elsee){
-		res = elsee->SemAnalyze(venv,tenv,labelcount);
-	}
-  return res;
 }
 
 TY::Ty *WhileExp::SemAnalyze(VEnvType venv, TEnvType tenv,
@@ -274,8 +331,6 @@ TY::Ty *ArrayExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 	errormsg.Error(pos,"arrayexp");
 	errormsg.Error(pos,"[typ]"+typ->Name());
 #endif
-	//TY::Ty *ty = init->SemAnalyze(venv,tenv,labelcount);
-  //return new TY::ArrayTy(ty);
 	TY::Ty *ty = tenv->Look(typ);
 	return ty;
 }
@@ -293,29 +348,45 @@ void FunctionDec::SemAnalyze(VEnvType venv, TEnvType tenv,
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"funcdec");
 #endif
+	//process declaration
 	A::FunDecList *p = functions;
 	while(p){
 		A::FunDec *func = p->head;
 		p = p->tail;
 
-		// process each function declaration
-		TY::Ty *rety = func->body->SemAnalyze(venv,tenv,labelcount);
+		TY::Ty *rety = TY::VoidTy::Instance();
 		if(func->result){
-			if(!rety->IsSameType(tenv->Look(func->result)))
-				errormsg.Error(func->pos,"func return type differs from body");
+			rety = tenv->Look(func->result);
 		}
-	
-		//FunEntry(TY::TyList *formals, TY::Ty *result)
-		//TyList(Ty *head, TyList *tail) : head(head), tail(tail) {}
-		TY::TyList *formals = nullptr;
-		A::FieldList *params = func->params;
-		while(params){
-			A::Field *param = params->head;
-			params = params->tail;
-
-			formals = new TY::TyList(tenv->Look(param->typ),formals);
-		}
+		TY::TyList *formals = make_formal_tylist(tenv,func->params);
 		venv->Enter(func->name,new E::FunEntry(formals,rety));
+	}
+
+	//process implementation
+	p = functions;
+	while(p){
+		A::FunDec *func = p->head;
+		p = p->tail;
+
+#ifdef __DGY__DEBUG__
+		errormsg.Error(pos,"func[name]"+func->name->Name());
+#endif
+		venv->BeginScope();
+		A::FieldList *pf = func->params;
+		while(pf){
+			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
+			pf = pf->tail;
+		}
+		TY::Ty *boty = func->body->SemAnalyze(venv,tenv,labelcount);
+		venv->EndScope();
+
+		TY::Ty *rety = TY::VoidTy::Instance();
+		if(func->result){
+			rety = tenv->Look(func->result);
+		}
+		if(!rety->IsSameType(boty))
+			errormsg.Error(func->pos,"func return type differs from body");
+	
 	}
 }
 
@@ -329,12 +400,11 @@ void VarDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 	if(typ)if(!ty->IsSameType(tenv->Look(typ))){
 		errormsg.Error(pos,"not same");
 	}
-	if(ty == nullptr)
-		errormsg.Error(pos,"1no such type");
-	venv->Enter(var,new E::VarEntry(ty,false));
+	if(ty == nullptr) errormsg.Error(pos,"1no such type");
 #ifdef __DGY__DEBUG__
-	errormsg.Error(pos,"$vardec");
+	errormsg.Error(pos,"vardec[var]%s[fact]%s",var->Name().c_str(),ty->PrintActualTy().c_str());
 #endif
+	venv->Enter(var,new E::VarEntry(ty,false));
 }
 
 void TypeDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
@@ -376,21 +446,7 @@ TY::Ty *RecordTy::SemAnalyze(TEnvType tenv) const {
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"RecordTy");
 #endif
-	A::FieldList *alp = record;
-	TY::FieldList *tlp = nullptr;
-	while(alp){
-		A::Field *afp = alp->head;
-		TY::Ty *ty = tenv->Look(afp->typ);
-		if(ty == nullptr){
-			errormsg.Error(afp->pos,"3no such type");
-			alp = alp->tail;
-			continue;
-		}
-		TY::Field *tfp = new TY::Field(afp->name,ty);
-		tlp = new TY::FieldList(tfp,tlp);
-		alp = alp->tail;
-	}
-  return new TY::RecordTy(tlp);
+  return new TY::RecordTy(make_fieldlist(tenv,record));
 }
 
 TY::Ty *ArrayTy::SemAnalyze(TEnvType tenv) const {
