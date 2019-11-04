@@ -141,11 +141,16 @@ TY::Ty *CallExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 	}
 	if(ent->kind == E::EnvEntry::FUN){
 		// check actuals
-		//TY::TyList *formals = ent->formals;
+		TY::TyList *formals = static_cast<E::FunEntry*>(ent)->formals;
 		A::ExpList *p = args;
-		while(p){
-			p->head->SemAnalyze(venv,tenv,labelcount);
+		while(p && formals){
+			if(!formals->head->IsSameType(p->head->SemAnalyze(venv,tenv,labelcount)))
+				errormsg.Error(pos,"para type mismatch");
+			formals = formals->tail;
 			p = p->tail;
+		}
+		if(p){
+			errormsg.Error(pos,"too many params in function %s",func->Name().c_str());
 		}
 
 		return static_cast<E::FunEntry*>(ent)->result;
@@ -212,6 +217,12 @@ TY::Ty *RecordExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 	errormsg.Error(pos,"recordexp");
 	errormsg.Error(pos,"[typ]"+typ->Name());
 #endif
+	TY::Ty *ty = tenv->Look(typ);
+	if(ty == nullptr){
+		errormsg.Error(pos,"undefined type %s",typ->Name().c_str());
+		return TY::VoidTy::Instance();
+	}
+
 	A::EFieldList *fl = fields;
 	TY::FieldList *tyfl = nullptr;
 	while(fl){
@@ -220,7 +231,7 @@ TY::Ty *RecordExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 		tyfl = new TY::FieldList(new TY::Field(p->name,p->exp->SemAnalyze(venv,tenv,labelcount)),tyfl);
 	}
   //return new TY::RecordTy(tyfl);
-	return tenv->Look(typ);
+	return ty;
 }
 
 TY::Ty *SeqExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
@@ -353,7 +364,15 @@ TY::Ty *ArrayExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 	errormsg.Error(pos,"arrayexp");
 	errormsg.Error(pos,"[typ]"+typ->Name());
 #endif
-	TY::Ty *ty = tenv->Look(typ);
+	TY::Ty *ty = tenv->Look(typ),
+		*inity = init->SemAnalyze(venv,tenv,labelcount);
+	if(ty->ActualTy()->kind == TY::Ty::ARRAY){
+		if(!static_cast<TY::ArrayTy*>(ty->ActualTy())->ty->IsSameType(inity))
+			errormsg.Error(pos,"type mismatch");
+	}
+	else{
+
+	}
 	return ty;
 }
 
@@ -381,6 +400,10 @@ void FunctionDec::SemAnalyze(VEnvType venv, TEnvType tenv,
 			rety = tenv->Look(func->result);
 		}
 		TY::TyList *formals = make_formal_tylist(tenv,func->params);
+		if(venv->Look(func->name) != nullptr){
+			errormsg.Error(pos,"two functions have the same name");
+			continue;
+		}
 		venv->Enter(func->name,new E::FunEntry(formals,rety));
 	}
 
@@ -440,8 +463,12 @@ void TypeDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 	//enter all names
 	while(p){
 		A::NameAndTy *nt = p->head;
-		tenv->Enter(nt->name,new TY::NameTy(nt->name,nullptr));
 		p = p->tail;
+		if(tenv->Look(nt->name) != nullptr){
+			errormsg.Error(pos,"two types have the same name");
+			continue;
+		}
+		tenv->Enter(nt->name,new TY::NameTy(nt->name,nullptr));
 	}
 
 	//Resolve true type
