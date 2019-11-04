@@ -445,8 +445,14 @@ void VarDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 	if(typ)errormsg.Error(pos,"[typ]"+typ->Name());
 #endif
 	TY::Ty *ty = init->SemAnalyze(venv,tenv,labelcount);
-	if(typ)if(!ty->IsSameType(tenv->Look(typ))){
-		errormsg.Error(pos,"type mismatch");
+	if(typ){
+		if(!ty->IsSameType(tenv->Look(typ))){
+			errormsg.Error(pos,"type mismatch");
+		}
+	}else{
+		if(ty->IsSameType(TY::NilTy::Instance())){
+			errormsg.Error(pos,"init should not be nil without type specified");
+		}
 	}
 	if(ty == nullptr) errormsg.Error(pos,"1no such type");
 #ifdef __DGY__DEBUG__
