@@ -62,17 +62,20 @@ TY::Ty *FieldVar::SemAnalyze(VEnvType venv, TEnvType tenv,
 	errormsg.Error(pos,"fieldvar[sym]"+sym->Name());
 #endif
 	TY::Ty *varty = var->SemAnalyze(venv,tenv,labelcount);
-	if(varty->kind == TY::Ty::RECORD){
-		TY::RecordTy *recty = static_cast<TY::RecordTy*>(varty);
+	if(varty->ActualTy()->kind == TY::Ty::RECORD){
+		TY::RecordTy *recty = static_cast<TY::RecordTy*>(varty->ActualTy());
 		TY::FieldList *p = recty->fields;
 		while(p){
 			if(p->head->name == sym)return p->head->ty;
 			p = p->tail;
 		}
-		errormsg.Error(pos,"no such a field %s",sym->Name().c_str());
+		errormsg.Error(pos,"field %s doesn't exist",sym->Name().c_str());
 	}
 	else {
-		errormsg.Error(pos,"not a field var");
+		errormsg.Error(pos,"not a record type");
+#ifdef __DGY__DEBUG__
+		errormsg.Error(pos,"varty:%s",varty->PrintActualTy().c_str());
+#endif
 	}
 
 	return TY::VoidTy::Instance();
@@ -92,7 +95,7 @@ TY::Ty *SubscriptVar::SemAnalyze(VEnvType venv, TEnvType tenv,
 #endif
 		return arrty->ty;
 	}
-	errormsg.Error(pos,"not a array var");
+	errormsg.Error(pos,"array type required");
 
 	return TY::VoidTy::Instance();
 }
@@ -166,12 +169,14 @@ TY::Ty *OpExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 #ifdef __DGY__DEBUG__
 			errormsg.Error(pos,"[left]%s[right]%s",left_ty->PrintActualTy().c_str(),right_ty->PrintActualTy().c_str());
 #endif
-			return TY::VoidTy::Instance();
+			//return TY::VoidTy::Instance();
 	}
 
 	switch(oper){
 		case A::PLUS_OP:
 		case A::MINUS_OP:
+		case A::TIMES_OP:
+		case A::DIVIDE_OP:
 		case A::LT_OP:
 		case A::LE_OP:
 		case A::GT_OP:
@@ -236,25 +241,22 @@ TY::Ty *AssignExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"assignexp");
 #endif
-	E::VarEntry *ent;
-	switch(var->kind){
-		case A::Var::SIMPLE:
-			ent = static_cast<E::VarEntry*>(venv->Look(static_cast<A::SimpleVar*>(var)->sym));
-			if(ent == nullptr){
-				//not found
-			}
-			if(ent->readonly){
-				errormsg.Error(pos,"loop variable can't be assigned");
-			}
-			break;
-		case A::Var::FIELD:
-			break;
-		case A::Var::SUBSCRIPT:
-			break;
-		default:
-			;
-	}
+	TY::Ty *varty = var->SemAnalyze(venv,tenv,labelcount),
+		*expty = exp->SemAnalyze(venv,tenv,labelcount);
 
+	if(!varty->IsSameType(expty))
+		errormsg.Error(pos,"unmatched assign exp");
+
+	// check if being loop var
+	if(var->kind == A::Var::SIMPLE){
+		E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(static_cast<A::SimpleVar*>(var)->sym));
+		if(ent == nullptr){
+			//not found
+		}
+		if(ent->readonly){
+			errormsg.Error(pos,"loop variable can't be assigned");
+		}
+	}
   return TY::VoidTy::Instance();
 }
 
@@ -264,6 +266,8 @@ TY::Ty *IfExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 #endif
 	TY::Ty *flag = test->SemAnalyze(venv,tenv,labelcount),
 		*thenty = then->SemAnalyze(venv,tenv,labelcount);
+	if(!flag->IsSameType(TY::IntTy::Instance()))
+		errormsg.Error(pos,"integer required");
 	if(elsee){
 		TY::Ty *elsety = elsee->SemAnalyze(venv,tenv,labelcount);
 		if(!thenty->IsSameType(elsety)){
@@ -401,10 +405,13 @@ void FunctionDec::SemAnalyze(VEnvType venv, TEnvType tenv,
 		TY::Ty *rety = TY::VoidTy::Instance();
 		if(func->result){
 			rety = tenv->Look(func->result);
+			if(!rety->IsSameType(boty))
+				errormsg.Error(func->pos,"func return type differs from body");
 		}
-		if(!rety->IsSameType(boty))
-			errormsg.Error(func->pos,"func return type differs from body");
-	
+		else {
+			if(!rety->IsSameType(boty))
+				errormsg.Error(func->pos,"procedure returns value");
+		}
 	}
 }
 
@@ -416,7 +423,7 @@ void VarDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 #endif
 	TY::Ty *ty = init->SemAnalyze(venv,tenv,labelcount);
 	if(typ)if(!ty->IsSameType(tenv->Look(typ))){
-		errormsg.Error(pos,"not same");
+		errormsg.Error(pos,"type mismatch");
 	}
 	if(ty == nullptr) errormsg.Error(pos,"1no such type");
 #ifdef __DGY__DEBUG__
