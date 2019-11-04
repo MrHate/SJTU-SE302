@@ -1,5 +1,6 @@
 #include "tiger/semant/types.h"
 
+#include <iostream>
 #include <map>
 #include <string>
 
@@ -23,6 +24,7 @@ VoidTy VoidTy::voidty_;
 Ty *Ty::ActualTy() {
   Ty *ty = this;
   while (ty->kind == TY::Ty::NAME) {
+		//std::cerr<<static_cast<TY::NameTy *>(ty)->sym->Name()<<std::endl;
     ty = static_cast<TY::NameTy *>(ty)->ty;
     if (this == ty) return nullptr;
   }

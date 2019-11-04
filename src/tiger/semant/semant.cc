@@ -1,6 +1,7 @@
 #include "tiger/semant/semant.h"
 #include "tiger/errormsg/errormsg.h"
 
+//#define __DGY__DEBUG__
 
 extern EM::ErrorMsg errormsg;
 
@@ -43,7 +44,7 @@ TY::Ty *SimpleVar::SemAnalyze(VEnvType venv, TEnvType tenv,
 #endif
 	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
 	if(ent == nullptr){
-		errormsg.Error(pos,"undefined symbol %s",sym->Name().c_str());
+		errormsg.Error(pos,"undefined variable %s",sym->Name().c_str());
 		return TY::VoidTy::Instance();
 	}
 
@@ -131,7 +132,19 @@ TY::Ty *CallExp::SemAnalyze(VEnvType venv, TEnvType tenv,
 	errormsg.Error(pos,"callexp[func]"+func->Name());
 #endif
   E::EnvEntry *ent = venv->Look(func);
+	if(ent == nullptr){
+		errormsg.Error(pos,"undefined function %s",func->Name().c_str());
+		return TY::VoidTy::Instance();
+	}
 	if(ent->kind == E::EnvEntry::FUN){
+		// check actuals
+		//TY::TyList *formals = ent->formals;
+		A::ExpList *p = args;
+		while(p){
+			p->head->SemAnalyze(venv,tenv,labelcount);
+			p = p->tail;
+		}
+
 		return static_cast<E::FunEntry*>(ent)->result;
 	}
 	else{
@@ -322,7 +335,12 @@ TY::Ty *LetExp::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"letexp-expsequence");
 #endif
-  return body->SemAnalyze(venv,tenv,labelcount);
+	venv->BeginScope();
+	tenv->BeginScope();
+	TY::Ty *rety = body->SemAnalyze(venv,tenv,labelcount);
+	venv->EndScope();
+	tenv->EndScope();
+	return rety;
 }
 
 TY::Ty *ArrayExp::SemAnalyze(VEnvType venv, TEnvType tenv,
@@ -412,6 +430,15 @@ void TypeDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 	errormsg.Error(pos,"typedec");
 #endif
 	A::NameAndTyList *p = types;
+	//enter all names
+	while(p){
+		A::NameAndTy *nt = p->head;
+		tenv->Enter(nt->name,new TY::NameTy(nt->name,nullptr));
+		p = p->tail;
+	}
+
+	//Resolve true type
+	p = types;
 	while(p){
 		A::NameAndTy *nt = p->head;
 #ifdef __DGY__DEBUG__
@@ -420,11 +447,29 @@ void TypeDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 		TY::Ty *ty = nt->ty->SemAnalyze(tenv);
 		if(ty != nullptr){
 #ifdef __DGY__DEBUG__
-			errormsg.Error(pos,"Enter ty[name]"+nt->name->Name());
+			errormsg.Error(pos,"Set ty[name]"+nt->name->Name());
 #endif
-			tenv->Enter(nt->name,ty);
+			TY::NameTy *nty = static_cast<TY::NameTy*>(tenv->Look(nt->name));
+			nty->ty = ty;
+			tenv->Set(nt->name,nty);
 		}
 		p = p->tail;
+	}
+
+	// Check illegal type cycle
+#ifdef __DGY__DEBUG__
+	errormsg.Error(pos,"check illegal type cycle..");
+#endif
+	p = types;
+	while(p){
+		A::NameAndTy *nt = p->head;
+		p = p->tail;
+
+		TY::NameTy *nty = static_cast<TY::NameTy*>(tenv->Look(nt->name));
+		if(nty->ty->ActualTy() == nullptr){
+			errormsg.Error(pos,"illegal type cycle");
+			nty->ty = TY::VoidTy::Instance();
+		}
 	}
 }
 
@@ -446,6 +491,13 @@ TY::Ty *RecordTy::SemAnalyze(TEnvType tenv) const {
 #ifdef __DGY__DEBUG__
 	errormsg.Error(pos,"RecordTy");
 #endif
+	A::FieldList *p = record;
+	while(p){
+		if(tenv->Look(p->head->typ) == nullptr){
+			errormsg.Error(pos,"undefined type %s",p->head->typ->Name().c_str());
+		}
+		p = p->tail;
+	}
   return new TY::RecordTy(make_fieldlist(tenv,record));
 }
 
