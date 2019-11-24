@@ -470,6 +470,8 @@ void TypeDec::SemAnalyze(VEnvType venv, TEnvType tenv, int labelcount) const {
 	while(p){
 		A::NameAndTy *nt = p->head;
 		p = p->tail;
+		
+		// Here is an critical error!
 		if(tenv->Look(nt->name) != nullptr){
 			errormsg.Error(pos,"two types have the same name");
 			continue;
