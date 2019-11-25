@@ -17,26 +17,27 @@ class X64Frame : public Frame {
 
  public:
 
-	TEMP::Label name;
-	F::AccessList formals;
+	TEMP::Label *name;
+	AccessList *formals;
 	int localnum;
 	
 	X64Frame(TEMP::Label name, U::BoolList formals): name(name), localnum(0){
 		while(formals){
-			F::Access* access = allocLocal(formals->head);
-			this.formals = new F::AccessList(access,this.formals);
+			Access* access = AllocLocal(formals->head);
+			this.formals = new AccessList(access,this.formals);
 			formals = formals->tail;
 		}
 	}
 
-	F::Access* allocLocal(bool escape){
+	Access* AllocLocal(bool escape){
 		if(escape){
-			return new F::InFrameAccess(--localnum * 4);
+			return new InFrameAccess(--localnum * 4);
 		}
 		else{
-			return new F::InRegAccess(new TEMP::Temp::NewTemp());
+			return new InRegAccess(new TEMP::Temp::NewTemp());
 		}
 	}
+
 };
 
 class InFrameAccess : public Access {
@@ -46,7 +47,13 @@ class InFrameAccess : public Access {
   InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
 
 	T::Exp* ToExp(T::Exp* framePtr) const {
-		return nullptr;
+		return new T::MemExp(
+				new T::BinopExp(
+					T::BINOP,
+					framePtr,
+					new T::ConstExp(offset)
+					)
+				);
 	}
 };
 

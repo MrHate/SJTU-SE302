@@ -11,6 +11,7 @@ namespace F {
 
 class Frame {
   // Base class
+	virtual Access* AllocLocal(bool escape) = 0;
 };
 
 class Access {
