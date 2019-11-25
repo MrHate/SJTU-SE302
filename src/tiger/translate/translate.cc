@@ -148,13 +148,34 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym->Name()));
+	if(ent == nullptr){
+		errormsg.Error(pos,"undefined variable %s",sym->Name().c_str());
+		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	}
+	TR::Exp exp = new TR::ExExp(ent->access->ToExp(F::FP()));
+  return TR::ExpAndTy(exp, ent->ty);
 }
 
 TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+	TR::ExpAndTy *var_expty = var->Translate(venv,tenv,level,label);
+	if(var_expty->ty->ActualTy()->kind == TY::Ty::RECORD){
+		TY::RecordTy *recty = static_cast<TY::RecordTy*>(var_expty->ty->ActualTy());
+		TY::FieldList *p = recty->fields;
+		while(p){
+			// TODO: replace the nullptr below according to text book
+			if(p->head->name == sym)return new TR::ExpAndTy(nullptr,p->head->ty);
+			p = p->tail;
+		}
+		errormsg.Error(pos,"field %s doesn't exist",sym->Name().c_str());
+	}
+	else {
+		errormsg.Error(pos,"not a record type");
+	}
+
   return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 }
 

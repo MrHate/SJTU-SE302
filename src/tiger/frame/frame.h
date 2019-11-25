@@ -23,6 +23,8 @@ class Access {
 
   // Hints: You may add interface like
   //        `virtual T::Exp* ToExp(T::Exp* framePtr) const = 0`
+
+	virtual T::Exp* ToExp(T::Exp* framePtr) const = 0;
 };
 
 class AccessList {

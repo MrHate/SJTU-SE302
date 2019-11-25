@@ -44,6 +44,10 @@ class InFrameAccess : public Access {
   int offset;
 
   InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
+
+	T::Exp* ToExp(T::Exp* framePtr) const {
+		return nullptr;
+	}
 };
 
 class InRegAccess : public Access {
@@ -51,6 +55,14 @@ class InRegAccess : public Access {
   TEMP::Temp* reg;
 
   InRegAccess(TEMP::Temp* reg) : Access(INREG), reg(reg) {}
+
+	T::Exp* ToExp(T::Exp* framePtr) const {
+		return T::TempExp(reg);
+	}
 };
+
+TEMP::Temp* FP(){
+	return nullptr;
+}
 
 }  // namespace F
