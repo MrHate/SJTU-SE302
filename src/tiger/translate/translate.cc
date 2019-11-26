@@ -209,7 +209,7 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 							new T::ConstExp(offset)
 							)
 						);
-				return new TR::ExpAndTy(e,p->head->ty);
+				return new TR::ExpAndTy(new TR::ExExp(e),p->head->ty);
 			}
 			p = p->tail;
 			offset += F::x64Frame::wordSize;
@@ -260,7 +260,7 @@ TR::ExpAndTy NilExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy IntExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  return TR::ExpAndTy(new T::ConstExp(i), TY::IntTy::Instance());
+  return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(i)), TY::IntTy::Instance());
 }
 
 TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
@@ -329,7 +329,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 				new T::NameExp(ent->label),
 				ret_args);
 		TY::Ty *ret_ty = static_cast<E::FunEntry*>(ent)->result;
-		return TR::ExpAndTy(ret_exp, ret_ty);
+		return TR::ExpAndTy(new TR::ExExp(ret_exp), ret_ty);
 	}
 	else{
 		errormsg.Error(pos,"not a name of func");
@@ -340,8 +340,131 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	TR::ExpAndTy *left_expty = left->Translate(venv,tenv,level,label),
+		*right_expty = right->Translate(venv,tenv,level,label);
+
+	if(!left_expty->ty->IsSameType(right_expty->ty)){
+			errormsg.Error(left->pos,"same type required");
+	}
+
+	if(oper == A::PLUS_OP ||
+			oper == A::MINUS_OP ||
+			oper == A::TIMES_OP ||
+			oper == A::DIVIDE_OP ||
+			oper == A::LT_OP ||
+			oper == A::GE_OP ||
+			oper == A::GT_OP ||
+			oper == A::GE_OP){
+		if(!left_expty->ty->IsSameType(TY::IntTy::Instance())){
+			errormsg.Error(left->pos,"integer required");
+			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+		}
+		if(!right_expty->ty->IsSameType(TY::IntTy::Instance())){
+			errormsg.Error(right->pos,"integer required");
+			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+		}
+	}
+
+
+	T::CjumpStm *stm = nullptr;
+	TR::PatchList *trues = nullptr,
+		*falses = nullptr;
+	T::Exp *ret_exp = nullptr;
+	TY::Ty *ret_ty = TY::IntTy::Instance();
+
+	switch(oper){
+		case A::PLUS_OP:
+			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP, left_expty->exp, right_expty->exp));
+			break;
+		case A::MINUS_OP:
+			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty->exp, right_expty->exp)); break;
+			break;
+		case A::TIMES_OP:
+			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty->exp, right_expty->exp));
+			break;
+		case A::DIVIDE_OP:
+			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP, left_expty->exp, right_expty->exp));
+			break;
+
+		case A::LT_OP:
+			stm = new T::CjumpStm(
+					T::LT_OP,
+					left_expty->exp,
+					right_expty->exp,
+					nullptr,
+					nullptr
+					);
+			trues = new TR::PatchList( &stm->true_label, nullptr);
+			falses = new TR::PatchList( &stm->false_label, nullptr);
+			ret_exp = new TR::CxExp(trues,falses,stm);
+			break;
+		case A::LE_OP:
+			stm = new T::CjumpStm(
+					T::LE_OP,
+					left_expty->exp,
+					right_expty->exp,
+					nullptr,
+					nullptr
+					);
+			trues = new TR::PatchList( &stm->true_label, nullptr);
+			falses = new TR::PatchList( &stm->false_label, nullptr);
+			ret_exp = new TR::CxExp(trues,falses,stm);
+			break;
+		case A::GT_OP:
+			stm = new T::CjumpStm(
+					T::GT_OP,
+					left_expty->exp,
+					right_expty->exp,
+					nullptr,
+					nullptr
+					);
+			trues = new TR::PatchList( &stm->true_label, nullptr);
+			falses = new TR::PatchList( &stm->false_label, nullptr);
+			ret_exp = new TR::CxExp(trues,falses,stm);
+			break;
+		case A::GE_OP:
+			stm = new T::CjumpStm(
+					T::GE_OP,
+					left_expty->exp,
+					right_expty->exp,
+					nullptr,
+					nullptr
+					);
+			trues = new TR::PatchList( &stm->true_label, nullptr);
+			falses = new TR::PatchList( &stm->false_label, nullptr);
+			ret_exp = new TR::CxExp(trues,falses,stm);
+			break;
+		case A::EQ_OP:
+			stm = new T::CjumpStm(
+					T::EQ_OP,
+					left_expty->exp,
+					right_expty->exp,
+					nullptr,
+					nullptr
+					);
+			trues = new TR::PatchList( &stm->true_label, nullptr);
+			falses = new TR::PatchList( &stm->false_label, nullptr);
+			ret_exp = new TR::CxExp(trues,falses,stm);
+			break;
+		case A::NEQ_OP:
+			stm = new T::CjumpStm(
+					T::NEQ_OP,
+					left_expty->exp,
+					right_expty->exp,
+					nullptr,
+					nullptr
+					);
+			trues = new TR::PatchList( &stm->true_label, nullptr);
+			falses = new TR::PatchList( &stm->false_label, nullptr);
+			ret_exp = new TR::CxExp(trues,falses,stm);
+			break;
+
+		default:
+			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	}
+
+	return TR::ExpAndTy(ret_exp,ret_ty);
+
 }
 
 TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
