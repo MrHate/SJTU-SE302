@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "tiger/errormsg/errormsg.h"
 #include "tiger/frame/temp.h"
@@ -195,9 +196,9 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
-	TR::ExpAndTy *var_expty = var->Translate(venv,tenv,level,label);
-	if(var_expty->ty->ActualTy()->kind == TY::Ty::RECORD){
-		TY::RecordTy *recty = static_cast<TY::RecordTy*>(var_expty->ty->ActualTy());
+	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
+	if(var_expty.ty->ActualTy()->kind == TY::Ty::RECORD){
+		TY::RecordTy *recty = static_cast<TY::RecordTy*>(var_expty.ty->ActualTy());
 		TY::FieldList *p = recty->fields;
 		int offset = 0;
 		while(p){
@@ -205,7 +206,7 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 				T::Exp *e = new T::MemExp(
 						new T::BinopExp(
 							T::PLUS_OP,
-							var_expty->exp,
+							var_expty.exp,
 							new T::ConstExp(offset)
 							)
 						);
@@ -226,16 +227,16 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
                                      S::Table<TY::Ty> *tenv, TR::Level *level,
                                      TEMP::Label *label) const {
-	TR::ExpAndTy *var_expty = var->Translate(venv,tenv,level,label);
-	if(var_expty->ty->kind == TY::Ty::ARRAY){
-		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(var_expty->ty);
+	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
+	if(var_expty.ty->kind == TY::Ty::ARRAY){
+		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(var_expty.ty);
 		//calculate exp to get offset
-		TR::ExpAndTy *sub_expty = subscript->Translate(venv,tenv,level,label);
+		TR::ExpAndTy sub_expty = subscript->Translate(venv,tenv,level,label);
 		T::Exp *e = new T::MemExp(
 				new T::BinopExp(
 					T::PLUS_OP,
-					var_expty->exp,
-					sub_expty->exp
+					var_expty.exp,
+					sub_expty.exp
 					)
 				);
 		return TR::ExpAndTy(e,arrty->ty);
@@ -340,10 +341,10 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
-	TR::ExpAndTy *left_expty = left->Translate(venv,tenv,level,label),
-		*right_expty = right->Translate(venv,tenv,level,label);
+	TR::ExpAndTy left_expty = left->Translate(venv,tenv,level,label),
+		right_expty = right->Translate(venv,tenv,level,label);
 
-	if(!left_expty->ty->IsSameType(right_expty->ty)){
+	if(!left_expty.ty->IsSameType(right_expty.ty)){
 			errormsg.Error(left->pos,"same type required");
 	}
 
@@ -355,11 +356,11 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 			oper == A::GE_OP ||
 			oper == A::GT_OP ||
 			oper == A::GE_OP){
-		if(!left_expty->ty->IsSameType(TY::IntTy::Instance())){
+		if(!left_expty.ty->IsSameType(TY::IntTy::Instance())){
 			errormsg.Error(left->pos,"integer required");
 			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 		}
-		if(!right_expty->ty->IsSameType(TY::IntTy::Instance())){
+		if(!right_expty.ty->IsSameType(TY::IntTy::Instance())){
 			errormsg.Error(right->pos,"integer required");
 			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 		}
@@ -374,23 +375,23 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	switch(oper){
 		case A::PLUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP, left_expty->exp, right_expty->exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP, left_expty.exp, right_expty.exp));
 			break;
 		case A::MINUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty->exp, right_expty->exp)); break;
+			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp, right_expty.exp));
 			break;
 		case A::TIMES_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty->exp, right_expty->exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty.exp, right_expty.exp));
 			break;
 		case A::DIVIDE_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP, left_expty->exp, right_expty->exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP, left_expty.exp, right_expty.exp));
 			break;
 
 		case A::LT_OP:
 			stm = new T::CjumpStm(
 					T::LT_OP,
-					left_expty->exp,
-					right_expty->exp,
+					left_expty.exp,
+					right_expty.exp,
 					nullptr,
 					nullptr
 					);
@@ -401,8 +402,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::LE_OP:
 			stm = new T::CjumpStm(
 					T::LE_OP,
-					left_expty->exp,
-					right_expty->exp,
+					left_expty.exp,
+					right_expty.exp,
 					nullptr,
 					nullptr
 					);
@@ -413,8 +414,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GT_OP:
 			stm = new T::CjumpStm(
 					T::GT_OP,
-					left_expty->exp,
-					right_expty->exp,
+					left_expty.exp,
+					right_expty.exp,
 					nullptr,
 					nullptr
 					);
@@ -425,8 +426,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GE_OP:
 			stm = new T::CjumpStm(
 					T::GE_OP,
-					left_expty->exp,
-					right_expty->exp,
+					left_expty.exp,
+					right_expty.exp,
 					nullptr,
 					nullptr
 					);
@@ -437,8 +438,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::EQ_OP:
 			stm = new T::CjumpStm(
 					T::EQ_OP,
-					left_expty->exp,
-					right_expty->exp,
+					left_expty.exp,
+					right_expty.exp,
 					nullptr,
 					nullptr
 					);
@@ -449,8 +450,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::NEQ_OP:
 			stm = new T::CjumpStm(
 					T::NEQ_OP,
-					left_expty->exp,
-					right_expty->exp,
+					left_expty.exp,
+					right_expty.exp,
 					nullptr,
 					nullptr
 					);
@@ -470,8 +471,68 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	TY::Ty *ty = tenv->Look(typ);
+	if(ty == nullptr){
+		errormsg.Error(pos,"undefined type %s",typ->Name().c_str());
+		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	}
+
+	A::EFieldList *fl = fields;
+	TY::FieldList *tyfl = nullptr;
+	int record_size = 0;
+	std::vector<TR::Exp> record_exps;
+	while(fl){
+		A::EField *p = fl->head;
+		fl = fl->tail;
+		TR::ExpAndTy p_expty = p->exp->Translate(venv,tenv,level,label);
+		record_exps.push_back(p_expty.exp);
+		tyfl = new TY::FieldList(
+				new TY::Field(
+					p->name,
+					p_expty.ty,
+					),
+				tyfl
+				);
+
+		record_size += F::x64Frame::wordSize;
+	}
+
+	// alloc memory needed for record body by calling runtime function
+	T::ExpList *runtime_args = new T::ExpList(new T::ConstExp(record_size),nullptr);
+	TEMP::Temp *record_t = TEMP::Temp::NewTemp();
+	T::Stm *alloc_stm = new T::MoveStm(
+			new T::TempExp(record_t),
+			new T::CallExp(
+				new T::NameExp( TEMP::NamedLabel("allocRecord")),
+				runtime_args
+				)
+			);
+
+	// init record body
+	T::Stm *init_stm = nullptr;
+	for(int i=0;i<record_exps.size();i++){
+		T::Exp *mv_stm = new T::MoveStm(
+				new T::MemExp(
+					new T::BinopExp(
+						T::PLUS_OP,
+						new T::TempExp(record_t),
+						new T::ConstExp(i * F::x64Frame::wordSize)
+						)
+					),
+				record_exps[i]
+				);
+		init_stm = new T::SeqStm(mv_stm, init_stm);
+	}
+
+	// integrate allocation and initialization into eseqexp
+	TR::Exp* ret_exp = new TR::ExExp(
+			new T::EseqExp(
+				new T::SeqStm( alloc_stm, init_stm),
+				new T::TempExp(record_t)
+				)
+			);
+
+	return TR::ExpAndTy(ret_exp,ty);
 }
 
 TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
