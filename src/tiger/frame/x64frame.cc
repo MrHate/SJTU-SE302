@@ -45,6 +45,14 @@ class X64Frame : public Frame {
 		}
 	}
 
+	AccessList* Formals() const {
+		return formals;
+	}
+
+	TEMP::Label* Name() const {
+		return name;
+	}
+
 };
 
 class InFrameAccess : public Access {
