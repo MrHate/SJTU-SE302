@@ -19,9 +19,15 @@ class X64Frame : public Frame {
 
 	TEMP::Label *name;
 	AccessList *formals;
-	int localnum;
+	int size;
+
+	static const int wordSize = 4;
 	
-	X64Frame(TEMP::Label name, U::BoolList formals): name(name), localnum(0){
+	X64Frame(TEMP::Label name, U::BoolList formals): name(name), size(0){
+		// newFrame函数必须做两件事
+		// 1. 在函数内如何看待参数(寄存器还是栈帧存储单元中)
+		// 2. 实现"视角位移"的指令
+
 		while(formals){
 			Access* access = AllocLocal(formals->head);
 			this.formals = new AccessList(access,this.formals);
@@ -31,7 +37,8 @@ class X64Frame : public Frame {
 
 	Access* AllocLocal(bool escape){
 		if(escape){
-			return new InFrameAccess(--localnum * 4);
+			size += wordSize;
+			return new InFrameAccess(-size);
 		}
 		else{
 			return new InRegAccess(new TEMP::Temp::NewTemp());

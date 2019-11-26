@@ -167,28 +167,53 @@ namespace A {
 TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
 	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym->Name()));
 	if(ent == nullptr){
 		errormsg.Error(pos,"undefined variable %s",sym->Name().c_str());
 		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	}
-	TR::Exp exp = new TR::ExExp(ent->access->ToExp(F::FP()));
+
+	// trace static link
+	TR::Level dst_lv = ent->access->level,
+						p_lv = level;
+	T::Exp *fp = F::FP();
+	while(p_lv != dst_lv){
+		fp = new T::MemExp(
+				new T::BinopExp(
+					T::PLUS_OP,
+					fp,
+					new T::ConstExp(0)
+					)
+				);
+		p_lv = p_lv->parent;
+	}
+
+	// calculate data location based on its frame pointer
+	TR::Exp exp = new TR::ExExp(ent->access->ToExp(fp));
   return TR::ExpAndTy(exp, ent->ty);
 }
 
 TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
 	TR::ExpAndTy *var_expty = var->Translate(venv,tenv,level,label);
 	if(var_expty->ty->ActualTy()->kind == TY::Ty::RECORD){
 		TY::RecordTy *recty = static_cast<TY::RecordTy*>(var_expty->ty->ActualTy());
 		TY::FieldList *p = recty->fields;
+		int offset = 0;
 		while(p){
-			// TODO: replace the nullptr below according to text book
-			if(p->head->name == sym)return new TR::ExpAndTy(nullptr,p->head->ty);
+			if(p->head->name == sym){
+				T::Exp *e = new T::MemExp(
+						new T::BinopExp(
+							T::PLUS_OP,
+							var_expty->exp,
+							new T::ConstExp(offset)
+							)
+						);
+				return new TR::ExpAndTy(e,p->head->ty);
+			}
 			p = p->tail;
+			offset += F::x64Frame::wordSize;
 		}
 		errormsg.Error(pos,"field %s doesn't exist",sym->Name().c_str());
 	}
@@ -202,36 +227,47 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
                                      S::Table<TY::Ty> *tenv, TR::Level *level,
                                      TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
+	TR::ExpAndTy *var_expty = var->Translate(venv,tenv,level,label);
+	if(var_expty->ty->kind == TY::Ty::ARRAY){
+		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(var_expty->ty);
+		//calculate exp to get offset
+		TR::ExpAndTy *sub_expty = subscript->Translate(venv,tenv,level,label);
+		T::Exp *e = new T::MemExp(
+				new T::BinopExp(
+					T::PLUS_OP,
+					var_expty->exp,
+					sub_expty->exp
+					)
+				);
+		return TR::ExpAndTy(e,arrty->ty);
+	}
+	errormsg.Error(pos,"array type required");
   return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 }
 
 TR::ExpAndTy VarExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  //return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	return var->Translate(venv,tenv,level,label);
 }
 
 TR::ExpAndTy NilExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  return TR::ExpAndTy(nullptr, TY::NilTy::Instance());
 }
 
 TR::ExpAndTy IntExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  return TR::ExpAndTy(new T::ConstExp(i), TY::IntTy::Instance());
 }
 
 TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  return TR::ExpAndTy(nullptr, TY::StringTy::Instance());
 }
 
 TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
