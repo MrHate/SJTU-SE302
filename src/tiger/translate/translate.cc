@@ -799,13 +799,13 @@ TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
                                TEMP::Label *label) const {
 	// TODO: finish let exp
 	A::DecList *p = decs;	
+
+	venv->BeginScope();
+	tenv->BeginScope();
 	while(p != nullptr){
 		p->head->Translate(venv,tenv,level,label);
 		p = p->tail;
 	}
-
-	venv->BeginScope();
-	tenv->BeginScope();
 	TR::ExpAndTy ret_expty = body->Translate(venv,tenv,level,label);
 	venv->EndScope();
 	tenv->EndScope();
@@ -852,7 +852,7 @@ TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
 }
 
 TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
@@ -864,8 +864,29 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 
 TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                            TR::Level *level, TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return nullptr;
+	TR::ExpAndTy init_expty = init->Translate(venv,tenv,level,label);
+	if(typ){
+		if(!init_expty.ty->IsSameType(tenv->Look(typ))){
+			errormsg.Error(pos,"type mismatch");
+		}
+	}else{
+		if(init_expty.ty->IsSameType(TY::NilTy::Instance())){
+			errormsg.Error(pos,"init should not be nil without type specified");
+		}
+	}
+	if(init_expty.ty == nullptr) errormsg.Error(pos,"1no such type");
+	venv->Enter(var,new E::VarEntry(init_expty.ty,false));
+
+	TR::Access *acc = TR::Access::AllocLocal(level,true);
+
+	// (p120)
+	// 变量定义中, transDec返回一个包含赋初值的赋值表达式的Tr_exp
+	TR::Exp *ret_exp = new TR::NxExp(
+			new T::MoveStm(
+				acc->ToExp(F::FP()),
+				init_expty.exp));
+
+  return ret_exp;
 }
 
 TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
