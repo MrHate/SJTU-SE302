@@ -598,8 +598,103 @@ TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	TR::ExpAndTy flag_expty = test->Translate(venv,tenv,level,label),
+		then_expty = then->Translate(venv,tenv,level,label);
+
+	TY::Ty *ret_ty = TY::VoidTy::Instance();
+	TR::Cx e1 = flag_expty.exp->UnCx();
+	TR::ExExp *e3 = nullptr;
+
+	if(!flag_expty.ty->IsSameType(TY::IntTy::Instance()))
+		errormsg.Error(pos,"integer required");
+	if(elsee){
+		TR::ExpAndTy else_expty = elsee->Translate(venv,tenv,level,label);
+		e3 = else_expty.exp->UnEx();
+		if(!then_expty.ty->IsSameType(else_expty.ty)){
+			errormsg.Error(pos,"then exp and else exp type mismatch");
+		}
+		ret_ty = then_expty.ty;
+	}
+	else {
+		if(!thenty->IsSameType(TY::VoidTy::Instance())){
+			errormsg.Error(pos,"if-then exp's body must produce no value");
+		}
+		ret_ty = TY::VoidTy::Instance();
+	}
+
+	T::Exp *ret_exp = nullptr;
+
+	// construct if exp sequence
+	if(e3 != nullptr){
+		TEMP::Label *then_label = *(e1.trues->head),
+			*else_label = TEMP::Label::NewLabel(),
+			*end_label = TEMP::Label::NewLabel();
+		TEMP::Temp *if_result = TEMP::Temp::NewTemp();
+
+		*(e1.falses->head) = else_label;
+
+		T::Stm *else_seq = new T::SeqStm(
+				new T::SeqStm(
+					new T::LabelStm(else_label),
+					new T::MoveStm(
+						new T::TempExp(if_result),
+						e3
+						)
+					),
+				new T::LabelStm(end_label)
+				);
+		T::Stm *then_seq = new T::SeqStm(
+				new T::LabelStm(then_label),
+				new T::SeqStm(
+					new T::MoveStm(
+						new T::TempExp(if_result),
+						then_expty.exp->UnEx()
+						),
+					new T::JumpStm(
+						new T::NameExp(end_label),
+						TEMP::LabelList(end_label,nullptr)
+						)
+					)
+				);
+		ret_exp = new TR::ExExp(
+				new T::EseqExp(
+					new T::SeqStm(
+						e1.stm,
+						new T::SeqStm( then_seq, else_seq)
+						),
+					new T::TempExp(if_result)
+					)
+				);
+	}
+	else{
+		TEMP::Label *then_label = *(e1.trues->head),
+			*end_label = TEMP::Label::NewLabel();
+
+		*(e1.falses->head) = end_label;
+
+		T::Stm *else_expty = new T::LabelStm(end_label);
+		T::Stm *then_expty = new T::SeqStm(
+				new T::LabelStm(then_label),
+				new T::SeqStm(
+					then_expty.exp->UnNx(),
+					new T::JumpStm(
+						new T::NameExp(end_label),
+						TEMP::LabelList(end_label,nullptr)
+						)
+					)
+				);
+		ret_exp = new TR::NxExp(
+				new T::SeqStm(
+					e1.stm,
+					new T::SeqStm(
+						then_seq,
+						else_seq
+						)
+					)
+				);
+	}
+	
+  return TR::ExpAndTy(ret_exp, ret_ty);
 }
 
 TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
@@ -640,7 +735,6 @@ TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
   return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 }
 
