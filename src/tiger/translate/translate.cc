@@ -797,15 +797,56 @@ TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	// TODO: finish let exp
+	A::DecList *p = decs;	
+	while(p != nullptr){
+		p->head->Translate(venv,tenv,level,label);
+		p = p->tail;
+	}
+
+	venv->BeginScope();
+	tenv->BeginScope();
+	TR::ExpAndTy ret_expty = body->Translate(venv,tenv,level,label);
+	venv->EndScope();
+	tenv->EndScope();
+
+  return ret_expty;
 }
 
 TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	TY::Ty *ret_ty = tenv->Look(typ);
+	TR::ExpAndTy init_expty = init->Translate(venv,tenv,level,label),
+		size_expty = size->Translate(venv,tenv,level,label);
+
+	if(ret_ty->ActualTy()->kind == TY::Ty::ARRAY){
+		if(!static_cast<TY::ArrayTy*>(ty->ActualTy())->ty->IsSameType(init_expty.ty))
+			errormsg.Error(pos,"type mismatch");
+	}
+	else{
+
+	}
+
+	// alloc memory and init with runtime function
+	T::ExpList *runtime_args = new T::ExpList(
+			size_expty.exp->UnEx(),
+			new T::ExpList(
+				init_expty.exp->UnEx(),
+				nullptr));
+	TEMP::Temp *arr_t = TEMP::Temp::NewTemp();
+	T::Stm *alloc_stm = new T::MoveStm(
+			new T::TempExp(arr_t),
+			new T::CallExp(
+				new T::NameExp(TEMP::NamedLabel("initArray")),
+				runtime_args));
+
+	TR::Exp *ret_exp = new TR::ExExp(
+			new T::EseqExp(
+				alloc_stm,
+				new T::TempExp(arr_t)));
+
+  return TR::ExpAndTy(ret_exp, ret_ty);
 }
 
 TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
