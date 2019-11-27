@@ -700,15 +700,87 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+
+	TR::ExpAndTy test_expty = test->Translate(venv,tenv,level,label),
+		body_expty = body->Translate(venv,tenv,level,label);
+	TEMP::Label *test_label = TEMP::Label::NewLabel(),
+		*body_label = TEMP::Label::NewLabel(),
+		*done_label = TEMP::Label::NewLabel();
+
+	if(!body_expty.ty->IsSameType(TY::VoidTy::Instance()))
+		errormsg.Error(body->pos,"while body must produce no value");
+
+	T::Stm *test_stm = new T::CjumpStm(
+			T::EQ_OP,
+			test_expty.exp->UnEx(),
+			new T::ConstExp(0),
+			done_label,
+			body_label
+			);
+	TR::Exp *ret_exp = new TR::NxExp(
+			new T::SeqStm(
+				new T::SeqStm(
+					new T::LabelStm(test_label),
+					test_stm
+					),
+				new T::SeqStm(
+					new T::SeqStm(
+						new T::LabelStm(body_label),
+						body_expty.exp->UnNx()
+						),
+					new T::LabelStm(done_label)
+					)
+				)
+			);
+
+  return TR::ExpAndTy(ret_exp, TY::VoidTy::Instance());
 }
 
 TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	//TR::ExpAndTy lo_expty = lo->Translate(venv,tenv,level,label),
+	//  hi_expty = hi->Translate(venv,tenv,level,label);
+
+	//venv->BeginScope();
+	//venv->Enter(var,new E::VarEntry(TY::IntTy::Instance(),true));
+
+	//if(!lo_expty.ty->IsSameType(TY::IntTy::Instance()))
+	//  errormsg.Error(lo->pos,"for exp's range type is not integer");
+	//if(!hi_expty.ty->IsSameType(TY::IntTy::Instance()))
+	//  errormsg.Error(hi->pos,"for exp's range type is not integer");
+
+	//TR::ExpAndTy body_expty = body->Translate(venv,tenv,level,label);
+	//venv->EndScope();
+
+  //return TR::ExpAndTy(nullptr, body_expty.ty);
+
+	// An potential error may occur when limit equals to maxint
+	S::Symbol *test_limit = S::Symbol::UniqueSymbol("limit");
+	A::LetExp let_exp = new A::LetExp( pos,
+			new A::DecList(
+				new A::VarDec(var,lo),
+				new A::DecList(
+					new A::VarDec(test_limit,hi),
+					nullptr)),
+			new A::WhileExp( pos,
+				new A::OpExp( pos,
+					A::LE_OP,
+					new A::SimpleVar(var),
+					new A::SimpleVar(test_limit)),
+				new A::SeqExp( pos,
+					new A::ExpList(
+						body,
+						new A::ExpList(
+							new A::AssignExp(pos,
+								var,
+								new A::OpExp(pos,
+									A::PLUS_OP,
+									new A::SimpleVar(var),
+									new A::IntExp(1))),
+							nullptr)))));
+	return let_exp->Translate(venv,tenv,level,label);
+
 }
 
 TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
