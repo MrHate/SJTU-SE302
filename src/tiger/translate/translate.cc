@@ -701,11 +701,11 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
 
-	TR::ExpAndTy test_expty = test->Translate(venv,tenv,level,label),
-		body_expty = body->Translate(venv,tenv,level,label);
 	TEMP::Label *test_label = TEMP::Label::NewLabel(),
 		*body_label = TEMP::Label::NewLabel(),
 		*done_label = TEMP::Label::NewLabel();
+	TR::ExpAndTy test_expty = test->Translate(venv,tenv,level,label),
+		body_expty = body->Translate(venv,tenv,level,done_label);
 
 	if(!body_expty.ty->IsSameType(TY::VoidTy::Instance()))
 		errormsg.Error(body->pos,"while body must produce no value");
@@ -786,8 +786,12 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	// TODO: check if label is invalid
+	TR::Exp *ret_exp = new TR::NxExp(
+			new T::JumpStm(
+				new T::NameExp(label),
+				new TEMP::LabelList(label,nullptr)));
+  return TR::ExpAndTy(ret_exp, TY::VoidTy::Instance());
 }
 
 TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
