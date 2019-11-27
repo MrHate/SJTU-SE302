@@ -206,7 +206,7 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 				T::Exp *e = new T::MemExp(
 						new T::BinopExp(
 							T::PLUS_OP,
-							var_expty.exp.UnEx(),
+							var_expty.exp->UnEx(),
 							new T::ConstExp(offset)
 							)
 						);
@@ -235,8 +235,8 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 		T::Exp *e = new T::MemExp(
 				new T::BinopExp(
 					T::PLUS_OP,
-					var_expty.exp.UnEx(),
-					sub_expty.exp.UnEx()
+					var_expty.exp->UnEx(),
+					sub_expty.exp->UnEx()
 					)
 				);
 		return TR::ExpAndTy(e,arrty->ty);
@@ -375,23 +375,23 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	switch(oper){
 		case A::PLUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP,  left_expty.exp.UnNx(), right_expty.exp.UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP,  left_expty.exp->UnNx(), right_expty.exp->UnNx()));
 			break;
 		case A::MINUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp.UnNx(), right_expty.exp.UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp->UnNx(), right_expty.exp->UnNx()));
 			break;
 		case A::TIMES_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty.exp.UnNx(), right_expty.exp.UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty.exp->UnNx(), right_expty.exp->UnNx()));
 			break;
 		case A::DIVIDE_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP,left_expty.exp.UnNx(), right_expty.exp.UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP,left_expty.exp->UnNx(), right_expty.exp->UnNx()));
 			break;
 
 		case A::LT_OP:
 			stm = new T::CjumpStm(
 					T::LT_OP,
-					left_expty.exp.UnNx(),
-					right_expty.exp.UnNx(),
+					left_expty.exp->UnNx(),
+					right_expty.exp->UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -402,8 +402,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::LE_OP:
 			stm = new T::CjumpStm(
 					T::LE_OP,
-					left_expty.exp.UnNx(),
-					right_expty.exp.UnNx(),
+					left_expty.exp->UnNx(),
+					right_expty.exp->UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -414,8 +414,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GT_OP:
 			stm = new T::CjumpStm(
 					T::GT_OP,
-					left_expty.exp.UnNx(),
-					right_expty.exp.UnNx(),
+					left_expty.exp->UnNx(),
+					right_expty.exp->UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -426,8 +426,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GE_OP:
 			stm = new T::CjumpStm(
 					T::GE_OP,
-					left_expty.exp.UnNx(),
-					right_expty.exp.UnNx(),
+					left_expty.exp->UnNx(),
+					right_expty.exp->UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -438,8 +438,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::EQ_OP:
 			stm = new T::CjumpStm(
 					T::EQ_OP,
-					left_expty.exp.UnNx(),
-					right_expty.exp.UnNx(),
+					left_expty.exp->UnNx(),
+					right_expty.exp->UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -450,8 +450,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::NEQ_OP:
 			stm = new T::CjumpStm(
 					T::NEQ_OP,
-					left_expty.exp.UnNx(),
-					right_expty.exp.UnNx(),
+					left_expty.exp->UnNx(),
+					right_expty.exp->UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -548,7 +548,7 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 		T::SeqStm **seq_leaf = &seq_stms;
 		while(*seq_leaf)
 			seq_leaf = &(*seq_stms)->right;
-		*seq_leaf = new T::SeqStm(p_expty.exp.UnNx(), nullptr);
+		*seq_leaf = new T::SeqStm(p_expty.exp->UnNx(), nullptr);
 
 		p = p->tail;
 	}
@@ -559,7 +559,7 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 	TR::Exp *ret_exp = new TR::ExExp(
 			new T::EseqExp(
 				seq_stms,
-				p_expty.exp.UnEx()
+				p_expty.exp->UnEx()
 				)
 			);
 	
@@ -569,8 +569,30 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label),
+		exp_expty = exp->Translate(venv,tenv,level,label);
+
+	if(!var_expty.ty->IsSameType(exp_expty.ty))
+		errormsg.Error(pos,"unmatched assign exp");
+
+	// check if being loop var
+	if(var->kind == A::Var::SIMPLE){
+		E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(static_cast<A::SimpleVar*>(var)->sym));
+		if(ent == nullptr){
+			//not found
+		}
+		if(ent->readonly){
+			errormsg.Error(pos,"loop variable can't be assigned");
+		}
+	}
+
+	TR::Exp *ret_exp = new TR::NxExp(
+			new T::MoveStm(
+				var_expty.exp->UnEx(),
+				exp_expty.exp->UnEx()
+				)
+			);
+  return TR::ExpAndTy(ret_exp, TY::VoidTy::Instance());
 }
 
 TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
