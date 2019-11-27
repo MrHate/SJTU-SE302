@@ -206,7 +206,7 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 				T::Exp *e = new T::MemExp(
 						new T::BinopExp(
 							T::PLUS_OP,
-							var_expty.exp,
+							var_expty.exp.UnEx(),
 							new T::ConstExp(offset)
 							)
 						);
@@ -235,8 +235,8 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 		T::Exp *e = new T::MemExp(
 				new T::BinopExp(
 					T::PLUS_OP,
-					var_expty.exp,
-					sub_expty.exp
+					var_expty.exp.UnEx(),
+					sub_expty.exp.UnEx()
 					)
 				);
 		return TR::ExpAndTy(e,arrty->ty);
@@ -375,23 +375,23 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	switch(oper){
 		case A::PLUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP, left_expty.exp, right_expty.exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP,  left_expty.exp.UnNx(), right_expty.exp.UnNx()));
 			break;
 		case A::MINUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp, right_expty.exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp.UnNx(), right_expty.exp.UnNx()));
 			break;
 		case A::TIMES_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty.exp, right_expty.exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty.exp.UnNx(), right_expty.exp.UnNx()));
 			break;
 		case A::DIVIDE_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP, left_expty.exp, right_expty.exp));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP,left_expty.exp.UnNx(), right_expty.exp.UnNx()));
 			break;
 
 		case A::LT_OP:
 			stm = new T::CjumpStm(
 					T::LT_OP,
-					left_expty.exp,
-					right_expty.exp,
+					left_expty.exp.UnNx(),
+					right_expty.exp.UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -402,8 +402,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::LE_OP:
 			stm = new T::CjumpStm(
 					T::LE_OP,
-					left_expty.exp,
-					right_expty.exp,
+					left_expty.exp.UnNx(),
+					right_expty.exp.UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -414,8 +414,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GT_OP:
 			stm = new T::CjumpStm(
 					T::GT_OP,
-					left_expty.exp,
-					right_expty.exp,
+					left_expty.exp.UnNx(),
+					right_expty.exp.UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -426,8 +426,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GE_OP:
 			stm = new T::CjumpStm(
 					T::GE_OP,
-					left_expty.exp,
-					right_expty.exp,
+					left_expty.exp.UnNx(),
+					right_expty.exp.UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -438,8 +438,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::EQ_OP:
 			stm = new T::CjumpStm(
 					T::EQ_OP,
-					left_expty.exp,
-					right_expty.exp,
+					left_expty.exp.UnNx(),
+					right_expty.exp.UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -450,8 +450,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::NEQ_OP:
 			stm = new T::CjumpStm(
 					T::NEQ_OP,
-					left_expty.exp,
-					right_expty.exp,
+					left_expty.exp.UnNx(),
+					right_expty.exp.UnNx(),
 					nullptr,
 					nullptr
 					);
@@ -538,8 +538,32 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	A::ExpList *p = seq;
+	T::Stm *seq_stms = nullptr;
+
+	while(p->tail){
+		TR::ExpAndTy p_expty = p->head->Translate(venv,tenv,level,label);
+		//ret_ty = p_expty.ty;
+
+		T::SeqStm **seq_leaf = &seq_stms;
+		while(*seq_leaf)
+			seq_leaf = &(*seq_stms)->right;
+		*seq_leaf = new T::SeqStm(p_expty.exp.UnNx(), nullptr);
+
+		p = p->tail;
+	}
+
+	// process the last exp
+	TR::ExpAndTy p_expty = p->head->Translate(venv,tenv,level,label);
+	TY::Ty *ret_ty = p_expty.ty;
+	TR::Exp *ret_exp = new TR::ExExp(
+			new T::EseqExp(
+				seq_stms,
+				p_expty.exp.UnEx()
+				)
+			);
+	
+  return TR::ExpAndTy(ret_exp, ret_ty);
 }
 
 TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
