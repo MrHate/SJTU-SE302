@@ -106,8 +106,10 @@ class ExExp : public Exp {
 
   ExExp(T::Exp *exp) : Exp(EX), exp(exp) {}
 
-  T::Exp *UnEx() const override {}
-  T::Stm *UnNx() const override {}
+  T::Exp *UnEx() const override { return exp; }
+
+  T::Stm *UnNx() const override { return new T::ExpStm(exp); }
+
   Cx UnCx() const override {}
 };
 
@@ -117,8 +119,10 @@ class NxExp : public Exp {
 
   NxExp(T::Stm *stm) : Exp(NX), stm(stm) {}
 
-  T::Exp *UnEx() const override {}
-  T::Stm *UnNx() const override {}
+  T::Exp *UnEx() const override { return new T::EseqExp(stm, new T::ConstExp(0)); }
+	
+  T::Stm *UnNx() const override { return stm; }
+
   Cx UnCx() const override {}
 };
 
@@ -130,9 +134,25 @@ class CxExp : public Exp {
   CxExp(PatchList *trues, PatchList *falses, T::Stm *stm)
       : Exp(CX), cx(trues, falses, stm) {}
 
-  T::Exp *UnEx() const override {}
+  T::Exp *UnEx() const override {
+		TEMP::Temp *r = TEMP::Temp::NewTemp();
+		TEMP::Label *t = TEMP::Label::NewLabel(),
+			*f = TEMP::Label::NewLabel();
+		do_patch(cx.trues,t);
+		do_patch(cx.falses,f);
+		return new T::EseqExp(new T::MoveStm(new T::TempExp(r),new T::ConstExp(1)),
+				new T::EseqExp(cx.stm,
+					new T::EseqExp(new T::LabelStm(f),
+						new T::EseqExp(new T::MoveStm(new T::TempExp(r), new T::ConstExp(0))<
+							new T::EseqExp(new T::LabelStm(t),
+								new T::TempExp(r))))));
+	}
+
   T::Stm *UnNx() const override {}
-  Cx UnCx() const override {}
+
+  Cx UnCx() const override {
+		return cx;
+	}
 };
 
 void do_patch(PatchList *tList, TEMP::Label *label) {
@@ -631,7 +651,8 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 			*end_label = TEMP::Label::NewLabel();
 		TEMP::Temp *if_result = TEMP::Temp::NewTemp();
 
-		*(e1.falses->head) = else_label;
+		//*(e1.falses->head) = else_label;
+		do_patch(e1.falses, end_label);
 
 		T::Stm *else_seq = new T::SeqStm(
 				new T::SeqStm(
@@ -670,7 +691,8 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 		TEMP::Label *then_label = *(e1.trues->head),
 			*end_label = TEMP::Label::NewLabel();
 
-		*(e1.falses->head) = end_label;
+		//*(e1.falses->head) = end_label;
+		do_patch(e1.falses, end_label);
 
 		T::Stm *else_expty = new T::LabelStm(end_label);
 		T::Stm *then_expty = new T::SeqStm(
