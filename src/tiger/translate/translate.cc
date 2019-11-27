@@ -110,7 +110,10 @@ class ExExp : public Exp {
 
   T::Stm *UnNx() const override { return new T::ExpStm(exp); }
 
-  Cx UnCx() const override {}
+  Cx UnCx() const override {
+		// (p110) 特殊对待CONST 0和CONST 1
+
+	}
 };
 
 class NxExp : public Exp {
@@ -123,7 +126,8 @@ class NxExp : public Exp {
 	
   T::Stm *UnNx() const override { return stm; }
 
-  Cx UnCx() const override {}
+	// (p111) unCx应拒绝Tr_nx的Tr_exp
+  Cx UnCx() const override { return Cx(nullptr,nullptr,nullptr); }
 };
 
 class CxExp : public Exp {
@@ -148,7 +152,12 @@ class CxExp : public Exp {
 								new T::TempExp(r))))));
 	}
 
-  T::Stm *UnNx() const override {}
+  T::Stm *UnNx() const override {
+		TEMP::Label *done_label = TEMP::Label::NewLabel();
+		do_patch(cx.trues,done_label);
+		do_patch(cx.falses,done_label);
+		return new T::SeqStm(cx.stm, new T::LabelStm(done_label));
+	}
 
   Cx UnCx() const override {
 		return cx;
@@ -646,13 +655,14 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	// construct if exp sequence
 	if(e3 != nullptr){
-		TEMP::Label *then_label = *(e1.trues->head),
+		TEMP::Label *then_label = TEMP::Label::NewLabel(),
 			*else_label = TEMP::Label::NewLabel(),
 			*end_label = TEMP::Label::NewLabel();
 		TEMP::Temp *if_result = TEMP::Temp::NewTemp();
 
 		//*(e1.falses->head) = else_label;
-		do_patch(e1.falses, end_label);
+		do_patch(e1.trues, then_label);
+		do_patch(e1.falses,else_label);
 
 		T::Stm *else_seq = new T::SeqStm(
 				new T::SeqStm(
@@ -688,10 +698,11 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 				);
 	}
 	else{
-		TEMP::Label *then_label = *(e1.trues->head),
+		TEMP::Label *then_label = TEMP::Label::NewLabel(),
 			*end_label = TEMP::Label::NewLabel();
 
 		//*(e1.falses->head) = end_label;
+		do_patch(e1.trues, then_label);
 		do_patch(e1.falses, end_label);
 
 		T::Stm *else_expty = new T::LabelStm(end_label);
