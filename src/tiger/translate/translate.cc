@@ -858,8 +858,53 @@ TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return nullptr;
+  // TODO: Finish FunctionDec
+
+	//process declaration
+	A::FunDecList *p = functions;
+	while(p){
+		A::FunDec *func = p->head;
+		p = p->tail;
+
+		TY::Ty *rety = TY::VoidTy::Instance();
+		if(func->result){
+			rety = tenv->Look(func->result);
+		}
+		TY::TyList *formals = make_formal_tylist(tenv,func->params);
+		if(venv->Look(func->name) != nullptr){
+			errormsg.Error(pos,"two functions have the same name");
+			continue;
+		}
+		venv->Enter(func->name,new E::FunEntry(formals,rety));
+	}
+
+	//process implementation
+	p = functions;
+	while(p){
+		A::FunDec *func = p->head;
+		p = p->tail;
+
+		venv->BeginScope();
+		A::FieldList *pf = func->params;
+		while(pf){
+			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
+			pf = pf->tail;
+		}
+		TY::Ty *boty = func->body->SemAnalyze(venv,tenv,labelcount);
+		venv->EndScope();
+
+		TY::Ty *rety = TY::VoidTy::Instance();
+		if(func->result){
+			rety = tenv->Look(func->result);
+			if(!rety->IsSameType(boty))
+				errormsg.Error(func->pos,"func return type differs from body");
+		}
+		else {
+			if(!rety->IsSameType(boty))
+				errormsg.Error(func->pos,"procedure returns value");
+		}
+	}
+  return new TR::ExExp(new T::ConstExp(0));
 }
 
 TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
@@ -891,8 +936,47 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 
 TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                             TR::Level *level, TEMP::Label *label) const {
-  // TODO: Put your codes here (lab5).
-  return nullptr;
+	// TODO: Finish TypeDec
+	A::NameAndTyList *p = types;
+	//enter all names
+	while(p){
+		A::NameAndTy *nt = p->head;
+		p = p->tail;
+		
+		// Here is an critical error!
+		if(tenv->Look(nt->name) != nullptr){
+			errormsg.Error(pos,"two types have the same name");
+			continue;
+		}
+		tenv->Enter(nt->name,new TY::NameTy(nt->name,nullptr));
+	}
+
+	//Resolve true type
+	p = types;
+	while(p){
+		A::NameAndTy *nt = p->head;
+		TY::Ty *ty = nt->ty->SemAnalyze(tenv);
+		if(ty != nullptr){
+			TY::NameTy *nty = static_cast<TY::NameTy*>(tenv->Look(nt->name));
+			nty->ty = ty;
+			tenv->Set(nt->name,nty);
+		}
+		p = p->tail;
+	}
+
+	// Check illegal type cycle
+	p = types;
+	while(p){
+		A::NameAndTy *nt = p->head;
+		p = p->tail;
+
+		TY::NameTy *nty = static_cast<TY::NameTy*>(tenv->Look(nt->name));
+		if(nty->ty->ActualTy() == nullptr){
+			errormsg.Error(pos,"illegal type cycle");
+			nty->ty = TY::VoidTy::Instance();
+		}
+	}
+  return new TR::ExExp(new T::ConstExp(0));
 }
 
 TY::Ty *NameTy::Translate(S::Table<TY::Ty> *tenv) const {
