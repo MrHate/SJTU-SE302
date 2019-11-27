@@ -875,6 +875,8 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 			errormsg.Error(pos,"two functions have the same name");
 			continue;
 		}
+
+		// TODO: FunEntry(TR::Level *level, TEMP::Label *label, TY::TyList *formals, TY::Ty *result)
 		venv->Enter(func->name,new E::FunEntry(formals,rety));
 	}
 
@@ -890,20 +892,21 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
 			pf = pf->tail;
 		}
-		TY::Ty *boty = func->body->SemAnalyze(venv,tenv,labelcount);
+		TY::Ty *body_expty = func->body->Translate(venv,tenv,TR::Level::NewLevel(level),label);
 		venv->EndScope();
 
 		TY::Ty *rety = TY::VoidTy::Instance();
 		if(func->result){
 			rety = tenv->Look(func->result);
-			if(!rety->IsSameType(boty))
+			if(!rety->IsSameType(body_expty.ty))
 				errormsg.Error(func->pos,"func return type differs from body");
 		}
 		else {
-			if(!rety->IsSameType(boty))
+			if(!rety->IsSameType(body_expty.ty))
 				errormsg.Error(func->pos,"procedure returns value");
 		}
 	}
+
   return new TR::ExExp(new T::ConstExp(0));
 }
 
