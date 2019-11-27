@@ -896,18 +896,38 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 }
 
 TY::Ty *NameTy::Translate(S::Table<TY::Ty> *tenv) const {
-  // TODO: Put your codes here (lab5).
-  return TY::VoidTy::Instance();
+	TY::Ty *ty = tenv->Look(name);
+	if(ty == nullptr){
+		errormsg.Error(pos,"2no such type");
+		return nullptr;
+		return TY::VoidTy::Instance();
+	}
+	else{
+		return new TY::NameTy(name,ty);
+	}
 }
 
 TY::Ty *RecordTy::Translate(S::Table<TY::Ty> *tenv) const {
-  // TODO: Put your codes here (lab5).
-  return TY::VoidTy::Instance();
+	A::FieldList *p = record;
+	while(p){
+		if(tenv->Look(p->head->typ) == nullptr){
+			errormsg.Error(pos,"undefined type %s",p->head->typ->Name().c_str());
+		}
+		p = p->tail;
+	}
+  return new TY::RecordTy(make_fieldlist(tenv,record));
 }
 
 TY::Ty *ArrayTy::Translate(S::Table<TY::Ty> *tenv) const {
-  // TODO: Put your codes here (lab5).
-  return TY::VoidTy::Instance();
+	TY::Ty *ty = tenv->Look(array);
+	if(ty == nullptr){
+		errormsg.Error(pos,"4no such type");
+		return nullptr;
+		return TY::VoidTy::Instance();
+	}
+	else{
+		return new TY::ArrayTy(ty);
+	}
 }
 
 }  // namespace A
