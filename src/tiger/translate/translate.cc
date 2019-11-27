@@ -302,7 +302,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 			A::Exp *a_arg = formals->head;
 
 			// check args' type during semant processing
-			if(!a_arg->IsSameType(p->head->SemAnalyze(venv,tenv,labelcount)))
+			if(!a_arg->IsSameType(p->head->Translate(venv,tenv,level,label)))
 				errormsg.Error(pos,"para type mismatch");
 
 			// translate args into tree explist
@@ -936,26 +936,30 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 
 TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                             TR::Level *level, TEMP::Label *label) const {
-	// TODO: Finish TypeDec
 	A::NameAndTyList *p = types;
 	//enter all names
 	while(p){
 		A::NameAndTy *nt = p->head;
 		p = p->tail;
 		
-		// Here is an critical error!
-		if(tenv->Look(nt->name) != nullptr){
-			errormsg.Error(pos,"two types have the same name");
-			continue;
+		// check repeated type name
+		A::NameAndTyList *np = p;
+		while(np){
+			if(np->head->name == nt->name){
+				errormsg.Error(pos,"two types have the same name");
+				break;
+			}
+			np = np->tail;
 		}
-		tenv->Enter(nt->name,new TY::NameTy(nt->name,nullptr));
+		if(np == nullptr)
+			tenv->Enter(nt->name,new TY::NameTy(nt->name,nullptr));
 	}
 
 	//Resolve true type
 	p = types;
 	while(p){
 		A::NameAndTy *nt = p->head;
-		TY::Ty *ty = nt->ty->SemAnalyze(tenv);
+		TY::Ty *ty = nt->ty->Translate(tenv);
 		if(ty != nullptr){
 			TY::NameTy *nty = static_cast<TY::NameTy*>(tenv->Look(nt->name));
 			nty->ty = ty;
@@ -976,6 +980,7 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 			nty->ty = TY::VoidTy::Instance();
 		}
 	}
+
   return new TR::ExExp(new T::ConstExp(0));
 }
 
