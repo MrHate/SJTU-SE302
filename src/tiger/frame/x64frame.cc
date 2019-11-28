@@ -1,8 +1,37 @@
 #include "tiger/frame/frame.h"
+#include "tiger/frame/temp.h"
 
 #include <string>
 
 namespace F {
+
+class InFrameAccess : public Access {
+ public:
+  int offset;
+
+  InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
+
+	T::Exp* ToExp(T::Exp* framePtr) const {
+		return new T::MemExp(
+				new T::BinopExp(
+					T::PLUS_OP,
+					framePtr,
+					new T::ConstExp(offset)
+					)
+				);
+	}
+};
+
+class InRegAccess : public Access {
+ public:
+  TEMP::Temp* reg;
+
+  InRegAccess(TEMP::Temp* reg) : Access(INREG), reg(reg) {}
+
+	T::Exp* ToExp(T::Exp* framePtr) const {
+		return new T::TempExp(reg);
+	}
+};
 
 class X64Frame : public Frame {
   // TODO: Put your codes here (lab6).
@@ -23,14 +52,14 @@ class X64Frame : public Frame {
 
 	static const int wordSize = 4;
 	
-	X64Frame(TEMP::Label name, U::BoolList formals): name(name), size(0){
+	X64Frame(TEMP::Label *name, U::BoolList *formals): name(name), size(0){
 		// newFrame函数必须做两件事
 		// 1. 在函数内如何看待参数(寄存器还是栈帧存储单元中)
 		// 2. 实现"视角位移"的指令
 
 		while(formals){
 			Access* access = AllocLocal(formals->head);
-			this.formals = new AccessList(access,this.formals);
+			this->formals = new AccessList(access, this->formals);
 			formals = formals->tail;
 		}
 	}
@@ -41,7 +70,7 @@ class X64Frame : public Frame {
 			return new InFrameAccess(-size);
 		}
 		else{
-			return new InRegAccess(new TEMP::Temp::NewTemp());
+			return new InRegAccess(TEMP::Temp::NewTemp());
 		}
 	}
 
@@ -53,34 +82,6 @@ class X64Frame : public Frame {
 		return name;
 	}
 
-};
-
-class InFrameAccess : public Access {
- public:
-  int offset;
-
-  InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
-
-	T::Exp* ToExp(T::Exp* framePtr) const {
-		return new T::MemExp(
-				new T::BinopExp(
-					T::BINOP,
-					framePtr,
-					new T::ConstExp(offset)
-					)
-				);
-	}
-};
-
-class InRegAccess : public Access {
- public:
-  TEMP::Temp* reg;
-
-  InRegAccess(TEMP::Temp* reg) : Access(INREG), reg(reg) {}
-
-	T::Exp* ToExp(T::Exp* framePtr) const {
-		return T::TempExp(reg);
-	}
 };
 
 TEMP::Temp* FP(){

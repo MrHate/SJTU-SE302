@@ -9,8 +9,12 @@
 
 namespace F {
 
+class Access;
+class AccessList;
+
 class Frame {
   // Base class
+ public:
 	virtual Access* AllocLocal(bool escape) = 0;
 	virtual AccessList* Formals() const = 0;
 	virtual TEMP::Label* Name() const = 0;

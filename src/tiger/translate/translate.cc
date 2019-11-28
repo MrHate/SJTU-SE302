@@ -11,6 +11,8 @@
 #include "tiger/semant/types.h"
 #include "tiger/util/util.h"
 
+extern EM::ErrorMsg errormsg;
+
 namespace TR {
 
 class Access {
@@ -112,7 +114,15 @@ class ExExp : public Exp {
 
   Cx UnCx() const override {
 		// (p110) 特殊对待CONST 0和CONST 1
-
+		T::CjumpStm *cj_stm = new T::CjumpStm(
+				NE_OP,
+				exp,
+				new T::ConstExp(0),
+				nullptr,
+				nullptr);
+		TR::PatchList *trues = new TR::PatchList(&cj_stm->true_label),
+			*falses = new TR::PatchList(&cj_stm->false_label);
+		return TR::Cx(trues, falses, cj_stm);
 	}
 };
 
@@ -184,9 +194,17 @@ Level *Outermost() {
   return lv;
 }
 
+F::FragList *AllocFrag(F::Frag *frag){
+	static F::FragList *frags = nullptr;
+	F::FragList **p = &frags;
+	while(*p) p = &((*p)->tail);
+	*p = new F::FragList(frag, nullptr);
+	return frags;
+}
+
 F::FragList *TranslateProgram(A::Exp *root) {
-  // TODO: Put your codes here (lab5).
-  return nullptr;
+	root->Translate(venv, tenv, Outermost(), nullptr);
+  return AllocFrag(nullptr);
 }
 
 }  // namespace TR
@@ -218,7 +236,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 	}
 
 	// calculate data location based on its frame pointer
-	TR::Exp exp = new TR::ExExp(ent->access->ToExp(fp));
+	TR::Exp exp = new TR::ExExp(ent->access->access->ToExp(fp));
   return TR::ExpAndTy(exp, ent->ty);
 }
 
@@ -277,7 +295,6 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy VarExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-  //return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	return var->Translate(venv,tenv,level,label);
 }
 
@@ -305,12 +322,13 @@ TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
 	// 所有字符串操作都由系统提供的函数来完成，这些函数为字符串操作分配堆空间并返回指针，
 	// 编译器只知道每个字符串指针正好是一个字长。
 
-	struct string str = {
-		s.size(),
-		s.c_str()
-	};
+	TEMP::Label *str_label = TEMP::Label::NewLabel();
+	char str_head = (char)s.size();
+	F::StringFrag *str_frag = new F::StringFrag(str_label, str_head + s);
+	TR::AllocFrag(str_frag);
+	TR::Exp *ret_exp = new TR::ExExp(new T::NameExp(str_label));
 
-  return TR::ExpAndTy(nullptr, TY::StringTy::Instance());
+  return TR::ExpAndTy(ret_exp, TY::StringTy::Instance());
 }
 
 TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
@@ -404,16 +422,16 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	switch(oper){
 		case A::PLUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP,  left_expty.exp->UnNx(), right_expty.exp->UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP,  left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::MINUS_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp->UnNx(), right_expty.exp->UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::TIMES_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::TIMES_OP, left_expty.exp->UnNx(), right_expty.exp->UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::MUL_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::DIVIDE_OP:
-			ret_exp = new TR::ExExp( new T::BinopExp( T::DIVIDE_OP,left_expty.exp->UnNx(), right_expty.exp->UnNx()));
+			ret_exp = new TR::ExExp( new T::BinopExp( T::DIV_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 
 		case A::LT_OP:
@@ -909,8 +927,12 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 			continue;
 		}
 
-		// TODO: FunEntry(TR::Level *level, TEMP::Label *label, TY::TyList *formals, TY::Ty *result)
-		venv->Enter(func->name,new E::FunEntry(formals,rety));
+		E::FunEntry *func_ent = new E::FunEntry(
+				TR::Level::NewLevel(level),
+				label.
+				formals,
+				rety);
+		venv->Enter(func->name, func_ent);
 	}
 
 	//process implementation
@@ -925,7 +947,8 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
 			pf = pf->tail;
 		}
-		TY::Ty *body_expty = func->body->Translate(venv,tenv,TR::Level::NewLevel(level),label);
+		F::FunEntry *func_ent = venv->Look(func->name);
+		TY::Ty *body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
 		venv->EndScope();
 
 		TY::Ty *rety = TY::VoidTy::Instance();
