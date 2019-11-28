@@ -59,7 +59,7 @@ class Level {
 		// Frame模块不应当知道静态链的信息, 静态链由Translate负责, Translate知道每个栈
 		// 帧都含有一个静态链, 静态链由寄存器传递给函数并保存在栈帧中, 尽可能将静态链
 		// 当作形参对待。
-		return new Level(new F::x64Frame(name,new U::BoolList(true,formals)),parent);
+		return new Level(new F::X64Frame(name,new U::BoolList(true,formals)),parent);
 	}
 };
 
@@ -115,13 +115,13 @@ class ExExp : public Exp {
   Cx UnCx() const override {
 		// (p110) 特殊对待CONST 0和CONST 1
 		T::CjumpStm *cj_stm = new T::CjumpStm(
-				NE_OP,
+				T::NE_OP,
 				exp,
 				new T::ConstExp(0),
 				nullptr,
 				nullptr);
-		TR::PatchList *trues = new TR::PatchList(&cj_stm->true_label),
-			*falses = new TR::PatchList(&cj_stm->false_label);
+		TR::PatchList *trues = new TR::PatchList(&cj_stm->true_label, nullptr),
+			*falses = new TR::PatchList(&cj_stm->false_label, nullptr);
 		return TR::Cx(trues, falses, cj_stm);
 	}
 };
@@ -150,10 +150,10 @@ class CxExp : public Exp {
 
   T::Exp *UnEx() const override {
 		TEMP::Temp *r = TEMP::Temp::NewTemp();
-		TEMP::Label *t = TEMP::Label::NewLabel(),
-			*f = TEMP::Label::NewLabel();
-		do_patch(cx.trues,t);
-		do_patch(cx.falses,f);
+		TEMP::Label *t = TEMP::NewLabel(),
+			*f = TEMP::NewLabel();
+		TR::do_patch(cx.trues,t);
+		TR::do_patch(cx.falses,f);
 		return new T::EseqExp(new T::MoveStm(new T::TempExp(r),new T::ConstExp(1)),
 				new T::EseqExp(cx.stm,
 					new T::EseqExp(new T::LabelStm(f),
@@ -163,7 +163,7 @@ class CxExp : public Exp {
 	}
 
   T::Stm *UnNx() const override {
-		TEMP::Label *done_label = TEMP::Label::NewLabel();
+		TEMP::Label *done_label = TEMP::NewLabel();
 		do_patch(cx.trues,done_label);
 		do_patch(cx.falses,done_label);
 		return new T::SeqStm(cx.stm, new T::LabelStm(done_label));
@@ -203,7 +203,7 @@ F::FragList *AllocFrag(F::Frag *frag){
 }
 
 F::FragList *TranslateProgram(A::Exp *root) {
-	root->Translate(venv, tenv, Outermost(), nullptr);
+	//root->Translate(venv, tenv, Outermost(), nullptr);
   return AllocFrag(nullptr);
 }
 
@@ -221,8 +221,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 	}
 
 	// trace static link
-	TR::Level dst_lv = ent->access->level,
-						p_lv = level;
+	TR::Level *dst_lv = ent->access->level, *p_lv = level;
 	T::Exp *fp = F::FP();
 	while(p_lv != dst_lv){
 		fp = new T::MemExp(
@@ -236,7 +235,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 	}
 
 	// calculate data location based on its frame pointer
-	TR::Exp exp = new TR::ExExp(ent->access->access->ToExp(fp));
+	TR::Exp *exp = new TR::ExExp(ent->access->access->ToExp(fp));
   return TR::ExpAndTy(exp, ent->ty);
 }
 
@@ -257,10 +256,10 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 							new T::ConstExp(offset)
 							)
 						);
-				return new TR::ExpAndTy(new TR::ExExp(e),p->head->ty);
+				return TR::ExpAndTy(new TR::ExExp(e),p->head->ty);
 			}
 			p = p->tail;
-			offset += F::x64Frame::wordSize;
+			offset += F::X64Frame::wordSize;
 		}
 		errormsg.Error(pos,"field %s doesn't exist",sym->Name().c_str());
 	}
@@ -286,7 +285,7 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 					sub_expty.exp->UnEx()
 					)
 				);
-		return TR::ExpAndTy(e,arrty->ty);
+		return TR::ExpAndTy(new TR::ExExp(e),arrty->ty);
 	}
 	errormsg.Error(pos,"array type required");
   return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
@@ -322,7 +321,7 @@ TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
 	// 所有字符串操作都由系统提供的函数来完成，这些函数为字符串操作分配堆空间并返回指针，
 	// 编译器只知道每个字符串指针正好是一个字长。
 
-	TEMP::Label *str_label = TEMP::Label::NewLabel();
+	TEMP::Label *str_label = TEMP::NewLabel();
 	char str_head = (char)s.size();
 	F::StringFrag *str_frag = new F::StringFrag(str_label, str_head + s);
 	TR::AllocFrag(str_frag);
@@ -346,7 +345,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		TY::TyList *formals = static_cast<E::FunEntry*>(ent)->formals;
 		A::ExpList *p = args;
 		while(p && formals){
-			A::Exp *a_arg = formals->head;
+			TY::Ty *a_arg = formals->head;
 
 			// check args' type during semant processing
 			if(!a_arg->IsSameType(p->head->Translate(venv,tenv,level,label)))
@@ -364,7 +363,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		}
 
 		// add static link as the first arg
-		TR::level *plv = level,
+		TR::Level *plv = level,
 			*lv = ent->level->parent;
 		T::Exp *sl = new T::NameExp(lv->frame->Name());
 		while(lv != plv){
@@ -417,7 +416,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 	T::CjumpStm *stm = nullptr;
 	TR::PatchList *trues = nullptr,
 		*falses = nullptr;
-	T::Exp *ret_exp = nullptr;
+	TR::Exp *ret_exp = nullptr;
 	TY::Ty *ret_ty = TY::IntTy::Instance();
 
 	switch(oper){
@@ -496,7 +495,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 			break;
 		case A::NEQ_OP:
 			stm = new T::CjumpStm(
-					T::NEQ_OP,
+					T::NE_OP,
 					left_expty.exp->UnNx(),
 					right_expty.exp->UnNx(),
 					nullptr,
@@ -527,7 +526,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 	A::EFieldList *fl = fields;
 	TY::FieldList *tyfl = nullptr;
 	int record_size = 0;
-	std::vector<TR::Exp> record_exps;
+	std::vector<TR::Exp*> record_exps;
 	while(fl){
 		A::EField *p = fl->head;
 		fl = fl->tail;
@@ -541,7 +540,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 				tyfl
 				);
 
-		record_size += F::x64Frame::wordSize;
+		record_size += F::X64Frame::wordSize;
 	}
 
 	// alloc memory needed for record body by calling runtime function
@@ -563,7 +562,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 					new T::BinopExp(
 						T::PLUS_OP,
 						new T::TempExp(record_t),
-						new T::ConstExp(i * F::x64Frame::wordSize)
+						new T::ConstExp(i * F::X64Frame::wordSize)
 						)
 					),
 				record_exps[i]
@@ -673,14 +672,14 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	// construct if exp sequence
 	if(e3 != nullptr){
-		TEMP::Label *then_label = TEMP::Label::NewLabel(),
-			*else_label = TEMP::Label::NewLabel(),
-			*end_label = TEMP::Label::NewLabel();
+		TEMP::Label *then_label = TEMP::NewLabel(),
+			*else_label = TEMP::NewLabel(),
+			*end_label = TEMP::NewLabel();
 		TEMP::Temp *if_result = TEMP::Temp::NewTemp();
 
 		//*(e1.falses->head) = else_label;
-		do_patch(e1.trues, then_label);
-		do_patch(e1.falses,else_label);
+		TR::do_patch(e1.trues, then_label);
+		TR::do_patch(e1.falses,else_label);
 
 		T::Stm *else_seq = new T::SeqStm(
 				new T::SeqStm(
@@ -716,15 +715,15 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 				);
 	}
 	else{
-		TEMP::Label *then_label = TEMP::Label::NewLabel(),
-			*end_label = TEMP::Label::NewLabel();
+		TEMP::Label *then_label = TEMP::NewLabel(),
+			*end_label = TEMP::NewLabel();
 
 		//*(e1.falses->head) = end_label;
-		do_patch(e1.trues, then_label);
-		do_patch(e1.falses, end_label);
+		TR::do_patch(e1.trues, then_label);
+		TR::do_patch(e1.falses, end_label);
 
-		T::Stm *else_expty = new T::LabelStm(end_label);
-		T::Stm *then_expty = new T::SeqStm(
+		T::Stm *else_seq = new T::LabelStm(end_label);
+		T::Stm *then_seq = new T::SeqStm(
 				new T::LabelStm(then_label),
 				new T::SeqStm(
 					then_expty.exp->UnNx(),
@@ -752,9 +751,9 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
 
-	TEMP::Label *test_label = TEMP::Label::NewLabel(),
-		*body_label = TEMP::Label::NewLabel(),
-		*done_label = TEMP::Label::NewLabel();
+	TEMP::Label *test_label = TEMP::NewLabel(),
+		*body_label = TEMP::NewLabel(),
+		*done_label = TEMP::NewLabel();
 	TR::ExpAndTy test_expty = test->Translate(venv,tenv,level,label),
 		body_expty = body->Translate(venv,tenv,level,done_label);
 
@@ -987,7 +986,7 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 	// 变量定义中, transDec返回一个包含赋初值的赋值表达式的Tr_exp
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::MoveStm(
-				acc->ToExp(F::FP()),
+				acc->access->ToExp(F::FP()),
 				init_expty.exp));
 
   return ret_exp;

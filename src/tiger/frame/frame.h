@@ -80,6 +80,10 @@ class FragList {
   FragList(Frag *head, FragList *tail) : head(head), tail(tail) {}
 };
 
+
+// Global frame pointer
+T::TempExp* FP();
+
 }  // namespace F
 
 #endif

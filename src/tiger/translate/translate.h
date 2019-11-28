@@ -17,6 +17,10 @@ class Level;
 
 Level* Outermost();
 
+class PatchList;
+void do_patch(PatchList *tList, TEMP::Label *label);
+PatchList *join_patch(PatchList *first, PatchList *second);
+
 F::FragList* TranslateProgram(A::Exp*);
 
 }  // namespace TR
