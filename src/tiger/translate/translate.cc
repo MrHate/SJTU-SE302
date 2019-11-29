@@ -13,6 +13,33 @@
 
 extern EM::ErrorMsg errormsg;
 
+namespace {
+static TY::TyList *make_formal_tylist(S::Table<TY::Ty> *tenv, A::FieldList *params) {
+  if (params == nullptr) {
+    return nullptr;
+  }
+
+  TY::Ty *ty = tenv->Look(params->head->typ);
+  if (ty == nullptr) {
+    errormsg.Error(params->head->pos, "undefined type %s",
+                   params->head->typ->Name().c_str());
+  }
+
+  return new TY::TyList(ty->ActualTy(), make_formal_tylist(tenv, params->tail));
+}
+
+static TY::FieldList *make_fieldlist(S::Table<TY::Ty> *tenv, A::FieldList *fields) {
+  if (fields == nullptr) {
+    return nullptr;
+  }
+
+  TY::Ty *ty = tenv->Look(fields->head->typ);
+  return new TY::FieldList(new TY::Field(fields->head->name, ty),
+                           make_fieldlist(tenv, fields->tail));
+}
+
+}  // namespace
+
 namespace TR {
 
 class Access {
@@ -36,32 +63,18 @@ class AccessList {
   AccessList(Access *head, AccessList *tail) : head(head), tail(tail) {}
 };
 
-class Level {
- public:
-  F::Frame *frame;
-  Level *parent;
-
-  Level(F::Frame *frame, Level *parent) : frame(frame), parent(parent) {}
-  AccessList *Formals(Level *level) {
-		F::AccessList *p = frame->Formals()->tail;
-		AccessList *ret = nullptr;
-		
-		while(p){
-			Access *acc = new Access(level,p->head);
-			ret = new AccessList(acc,ret);
-			p = p->tail;
-		}
-
-		return ret;
+AccessList* Level::Formals(Level *level) {
+	F::AccessList *p = frame->Formals()->tail;
+	AccessList *ret = nullptr;
+	
+	while(p){
+		Access *acc = new Access(level,p->head);
+		ret = new AccessList(acc,ret);
+		p = p->tail;
 	}
 
-  static Level *NewLevel(Level *parent, TEMP::Label *name, U::BoolList *formals){
-		// Frame模块不应当知道静态链的信息, 静态链由Translate负责, Translate知道每个栈
-		// 帧都含有一个静态链, 静态链由寄存器传递给函数并保存在栈帧中, 尽可能将静态链
-		// 当作形参对待。
-		return new Level(new F::X64Frame(name,new U::BoolList(true,formals)),parent);
-	}
-};
+	return ret;
+}
 
 class PatchList {
  public:
@@ -157,7 +170,7 @@ class CxExp : public Exp {
 		return new T::EseqExp(new T::MoveStm(new T::TempExp(r),new T::ConstExp(1)),
 				new T::EseqExp(cx.stm,
 					new T::EseqExp(new T::LabelStm(f),
-						new T::EseqExp(new T::MoveStm(new T::TempExp(r), new T::ConstExp(0))<
+						new T::EseqExp(new T::MoveStm(new T::TempExp(r), new T::ConstExp(0)),
 							new T::EseqExp(new T::LabelStm(t),
 								new T::TempExp(r))))));
 	}
@@ -214,7 +227,7 @@ namespace A {
 TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
-	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym->Name()));
+	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
 	if(ent == nullptr){
 		errormsg.Error(pos,"undefined variable %s",sym->Name().c_str());
 		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
@@ -348,12 +361,14 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 			TY::Ty *a_arg = formals->head;
 
 			// check args' type during semant processing
-			if(!a_arg->IsSameType(p->head->Translate(venv,tenv,level,label)))
+			TR::ExpAndTy p_expty = p->head->Translate(venv,tenv,level,label);
+			if(!a_arg->IsSameType(p_expty.ty))
 				errormsg.Error(pos,"para type mismatch");
 
 			// translate args into tree explist
-			T::Exp *t_arg = a_arg->Translate(venv,tenv,level,label);
-			ret_args = new T::ExpList(ret_args,t_arg);
+			//T::Exp *t_arg = a_arg->Translate(venv,tenv,level,label);
+			T::Exp *t_arg = p_expty.exp->UnEx();
+			ret_args = new T::ExpList(t_arg,ret_args);
 
 			formals = formals->tail;
 			p = p->tail;
@@ -364,16 +379,17 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 
 		// add static link as the first arg
 		TR::Level *plv = level,
-			*lv = ent->level->parent;
+			*lv = static_cast<E::FunEntry*>(ent)->level->parent;
 		T::Exp *sl = new T::NameExp(lv->frame->Name());
 		while(lv != plv){
-			sl = new T::NameExp(new T::MemExp(sl));
+			//sl = new T::NameExp(new T::MemExp(sl));
+			sl = new T::MemExp(sl);
 			lv = lv->parent;
 		}
 		ret_args = new T::ExpList(sl,ret_args);
 
 		T::Exp *ret_exp = new T::CallExp(
-				new T::NameExp(ent->label),
+				new T::NameExp(static_cast<E::FunEntry*>(ent)->label),
 				ret_args);
 		TY::Ty *ret_ty = static_cast<E::FunEntry*>(ent)->result;
 		return TR::ExpAndTy(new TR::ExExp(ret_exp), ret_ty);
@@ -436,8 +452,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::LT_OP:
 			stm = new T::CjumpStm(
 					T::LT_OP,
-					left_expty.exp->UnNx(),
-					right_expty.exp->UnNx(),
+					left_expty.exp->UnEx(),
+					right_expty.exp->UnEx(),
 					nullptr,
 					nullptr
 					);
@@ -448,8 +464,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::LE_OP:
 			stm = new T::CjumpStm(
 					T::LE_OP,
-					left_expty.exp->UnNx(),
-					right_expty.exp->UnNx(),
+					left_expty.exp->UnEx(),
+					right_expty.exp->UnEx(),
 					nullptr,
 					nullptr
 					);
@@ -460,8 +476,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GT_OP:
 			stm = new T::CjumpStm(
 					T::GT_OP,
-					left_expty.exp->UnNx(),
-					right_expty.exp->UnNx(),
+					left_expty.exp->UnEx(),
+					right_expty.exp->UnEx(),
 					nullptr,
 					nullptr
 					);
@@ -472,8 +488,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::GE_OP:
 			stm = new T::CjumpStm(
 					T::GE_OP,
-					left_expty.exp->UnNx(),
-					right_expty.exp->UnNx(),
+					left_expty.exp->UnEx(),
+					right_expty.exp->UnEx(),
 					nullptr,
 					nullptr
 					);
@@ -484,8 +500,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::EQ_OP:
 			stm = new T::CjumpStm(
 					T::EQ_OP,
-					left_expty.exp->UnNx(),
-					right_expty.exp->UnNx(),
+					left_expty.exp->UnEx(),
+					right_expty.exp->UnEx(),
 					nullptr,
 					nullptr
 					);
@@ -496,8 +512,8 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 		case A::NEQ_OP:
 			stm = new T::CjumpStm(
 					T::NE_OP,
-					left_expty.exp->UnNx(),
-					right_expty.exp->UnNx(),
+					left_expty.exp->UnEx(),
+					right_expty.exp->UnEx(),
 					nullptr,
 					nullptr
 					);
@@ -535,10 +551,8 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 		tyfl = new TY::FieldList(
 				new TY::Field(
 					p->name,
-					p_expty.ty,
-					),
-				tyfl
-				);
+					p_expty.ty),
+				tyfl);
 
 		record_size += F::X64Frame::wordSize;
 	}
@@ -557,7 +571,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 	// init record body
 	T::Stm *init_stm = nullptr;
 	for(int i=0;i<record_exps.size();i++){
-		T::Exp *mv_stm = new T::MoveStm(
+		T::Stm *mv_stm = new T::MoveStm(
 				new T::MemExp(
 					new T::BinopExp(
 						T::PLUS_OP,
@@ -565,7 +579,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 						new T::ConstExp(i * F::X64Frame::wordSize)
 						)
 					),
-				record_exps[i]
+				record_exps[i]->UnEx()
 				);
 		init_stm = new T::SeqStm(mv_stm, init_stm);
 	}
@@ -591,9 +605,9 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 		TR::ExpAndTy p_expty = p->head->Translate(venv,tenv,level,label);
 		//ret_ty = p_expty.ty;
 
-		T::SeqStm **seq_leaf = &seq_stms;
+		T::Stm **seq_leaf = &seq_stms;
 		while(*seq_leaf)
-			seq_leaf = &(*seq_stms)->right;
+			seq_leaf = &(static_cast<T::SeqStm*>(*seq_leaf)->right);
 		*seq_leaf = new T::SeqStm(p_expty.exp->UnNx(), nullptr);
 
 		p = p->tail;
@@ -649,7 +663,7 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	TY::Ty *ret_ty = TY::VoidTy::Instance();
 	TR::Cx e1 = flag_expty.exp->UnCx();
-	TR::ExExp *e3 = nullptr;
+	T::Exp *e3 = nullptr;
 
 	if(!flag_expty.ty->IsSameType(TY::IntTy::Instance()))
 		errormsg.Error(pos,"integer required");
@@ -662,13 +676,13 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 		ret_ty = then_expty.ty;
 	}
 	else {
-		if(!thenty->IsSameType(TY::VoidTy::Instance())){
+		if(!then_expty.ty->IsSameType(TY::VoidTy::Instance())){
 			errormsg.Error(pos,"if-then exp's body must produce no value");
 		}
 		ret_ty = TY::VoidTy::Instance();
 	}
 
-	T::Exp *ret_exp = nullptr;
+	TR::Exp *ret_exp = nullptr;
 
 	// construct if exp sequence
 	if(e3 != nullptr){
@@ -700,7 +714,7 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 						),
 					new T::JumpStm(
 						new T::NameExp(end_label),
-						TEMP::LabelList(end_label,nullptr)
+						new TEMP::LabelList(end_label,nullptr)
 						)
 					)
 				);
@@ -729,7 +743,7 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 					then_expty.exp->UnNx(),
 					new T::JumpStm(
 						new T::NameExp(end_label),
-						TEMP::LabelList(end_label,nullptr)
+						new TEMP::LabelList(end_label,nullptr)
 						)
 					)
 				);
@@ -807,27 +821,27 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
 
 	// An potential error may occur when limit equals to maxint
 	S::Symbol *test_limit = S::Symbol::UniqueSymbol("limit");
-	A::LetExp let_exp = new A::LetExp( pos,
+	A::LetExp *let_exp = new A::LetExp( pos,
 			new A::DecList(
-				new A::VarDec(var,lo),
+				new A::VarDec(pos, var, nullptr, lo),
 				new A::DecList(
-					new A::VarDec(test_limit,hi),
+					new A::VarDec(pos, test_limit, nullptr, hi),
 					nullptr)),
 			new A::WhileExp( pos,
 				new A::OpExp( pos,
 					A::LE_OP,
-					new A::SimpleVar(var),
-					new A::SimpleVar(test_limit)),
+					new A::VarExp(pos, new A::SimpleVar(pos, var)),
+					new A::VarExp(pos, new A::SimpleVar(pos, test_limit))),
 				new A::SeqExp( pos,
 					new A::ExpList(
 						body,
 						new A::ExpList(
 							new A::AssignExp(pos,
-								var,
+								new A::SimpleVar(pos, var),
 								new A::OpExp(pos,
 									A::PLUS_OP,
-									new A::SimpleVar(var),
-									new A::IntExp(1))),
+									new A::VarExp(pos, new A::SimpleVar(pos, var)),
+									new A::IntExp(pos, 1))),
 							nullptr)))));
 	return let_exp->Translate(venv,tenv,level,label);
 
@@ -871,7 +885,7 @@ TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
 		size_expty = size->Translate(venv,tenv,level,label);
 
 	if(ret_ty->ActualTy()->kind == TY::Ty::ARRAY){
-		if(!static_cast<TY::ArrayTy*>(ty->ActualTy())->ty->IsSameType(init_expty.ty))
+		if(!static_cast<TY::ArrayTy*>(ret_ty->ActualTy())->ty->IsSameType(init_expty.ty))
 			errormsg.Error(pos,"type mismatch");
 	}
 	else{
@@ -911,56 +925,56 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
   // TODO: Finish FunctionDec
 
 	//process declaration
-	A::FunDecList *p = functions;
-	while(p){
-		A::FunDec *func = p->head;
-		p = p->tail;
+	//A::FunDecList *p = functions;
+	//while(p){
+	//  A::FunDec *func = p->head;
+	//  p = p->tail;
 
-		TY::Ty *rety = TY::VoidTy::Instance();
-		if(func->result){
-			rety = tenv->Look(func->result);
-		}
-		TY::TyList *formals = make_formal_tylist(tenv,func->params);
-		if(venv->Look(func->name) != nullptr){
-			errormsg.Error(pos,"two functions have the same name");
-			continue;
-		}
+	//  TY::Ty *rety = TY::VoidTy::Instance();
+	//  if(func->result){
+	//    rety = tenv->Look(func->result);
+	//  }
+	//  TY::TyList *formals = make_formal_tylist(tenv,func->params);
+	//  if(venv->Look(func->name) != nullptr){
+	//    errormsg.Error(pos,"two functions have the same name");
+	//    continue;
+	//  }
 
-		E::FunEntry *func_ent = new E::FunEntry(
-				TR::Level::NewLevel(level),
-				label.
-				formals,
-				rety);
-		venv->Enter(func->name, func_ent);
-	}
+	//  E::FunEntry *func_ent = new E::FunEntry(
+	//      TR::Level::NewLevel(level),
+	//      label.
+	//      formals,
+	//      rety);
+	//  venv->Enter(func->name, func_ent);
+	//}
 
-	//process implementation
-	p = functions;
-	while(p){
-		A::FunDec *func = p->head;
-		p = p->tail;
+	////process implementation
+	//p = functions;
+	//while(p){
+	//  A::FunDec *func = p->head;
+	//  p = p->tail;
 
-		venv->BeginScope();
-		A::FieldList *pf = func->params;
-		while(pf){
-			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
-			pf = pf->tail;
-		}
-		F::FunEntry *func_ent = venv->Look(func->name);
-		TY::Ty *body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
-		venv->EndScope();
+	//  venv->BeginScope();
+	//  A::FieldList *pf = func->params;
+	//  while(pf){
+	//    venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
+	//    pf = pf->tail;
+	//  }
+	//  F::FunEntry *func_ent = venv->Look(func->name);
+	//  TR::ExpAndTy body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
+	//  venv->EndScope();
 
-		TY::Ty *rety = TY::VoidTy::Instance();
-		if(func->result){
-			rety = tenv->Look(func->result);
-			if(!rety->IsSameType(body_expty.ty))
-				errormsg.Error(func->pos,"func return type differs from body");
-		}
-		else {
-			if(!rety->IsSameType(body_expty.ty))
-				errormsg.Error(func->pos,"procedure returns value");
-		}
-	}
+	//  TY::Ty *rety = TY::VoidTy::Instance();
+	//  if(func->result){
+	//    rety = tenv->Look(func->result);
+	//    if(!rety->IsSameType(body_expty.ty))
+	//      errormsg.Error(func->pos,"func return type differs from body");
+	//  }
+	//  else {
+	//    if(!rety->IsSameType(body_expty.ty))
+	//      errormsg.Error(func->pos,"procedure returns value");
+	//  }
+	//}
 
   return new TR::ExExp(new T::ConstExp(0));
 }
@@ -987,7 +1001,7 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::MoveStm(
 				acc->access->ToExp(F::FP()),
-				init_expty.exp));
+				init_expty.exp->UnEx()));
 
   return ret_exp;
 }
