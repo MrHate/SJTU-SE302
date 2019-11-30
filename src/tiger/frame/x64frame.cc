@@ -43,8 +43,29 @@ Access* X64Frame::AllocLocal(bool escape){
 	}
 }
 
-T::TempExp* FP(){
+T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
+	return stm;
+}
+
+AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
 	return nullptr;
+}
+
+// global regs
+TEMP::Temp* FP(){
+	static TEMP::Temp *_t = nullptr;
+	if(!_t){
+		_t = TEMP::Temp::NewTemp();
+	}
+	return _t;
+}
+
+TEMP::Temp* RV(){
+	static TEMP::Temp *_t = nullptr;
+	if(!_t){
+		_t = TEMP::Temp::NewTemp();
+	}
+	return _t;
 }
 
 }  // namespace F

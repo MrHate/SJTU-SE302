@@ -36,12 +36,14 @@ class Frame {
  public:
 	virtual Access* AllocLocal(bool escape) = 0;
 	virtual AccessList* Formals() const = 0;
+
 	virtual TEMP::Label* Name() const = 0;
+
+	virtual T::Stm* ProcEntryExit1(T::Stm* stm) = 0;
+	virtual AS::Proc* ProcEntryExit3(AS::InstrList* il) = 0;
 };
 
 class X64Frame : public Frame {
-  // TODO: Put your codes here (lab6).
-	
 	// (p98) Frame contains the members below:
 	// 1. the locations of all the formals,
 	// 2. instructions required to implement the "view shift",
@@ -80,6 +82,8 @@ class X64Frame : public Frame {
 		return name;
 	}
 
+	T::Stm* ProcEntryExit1(T::Stm* stm);
+	AS::Proc* ProcEntryExit3(AS::InstrList* il);
 };
 
 /*
@@ -121,8 +125,9 @@ class FragList {
 };
 
 
-// Global frame pointer
-T::TempExp* FP();
+// Global regs
+TEMP::Temp* FP();
+TEMP::Temp* RV();
 
 //AS::Proc *F_procEntryExit3(Frame *frame, AS::InstrList *il){return nullptr;}
 

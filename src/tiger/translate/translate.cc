@@ -216,8 +216,9 @@ F::FragList *AllocFrag(F::Frag *frag){
 }
 
 F::FragList *TranslateProgram(A::Exp *root) {
-	//root->Translate(venv, tenv, Outermost(), nullptr);
-  return AllocFrag(nullptr);
+	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), Outermost(), nullptr).exp->UnNx();
+	F::Frag *frag = new F::ProcFrag(stm, nullptr);
+  return AllocFrag(frag);
 }
 
 }  // namespace TR
@@ -235,7 +236,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 
 	// trace static link
 	TR::Level *dst_lv = ent->access->level, *p_lv = level;
-	T::Exp *fp = F::FP();
+	T::Exp *fp = new T::TempExp(F::FP());
 	while(p_lv != dst_lv){
 		fp = new T::MemExp(
 				new T::BinopExp(
@@ -335,8 +336,9 @@ TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
 	// 编译器只知道每个字符串指针正好是一个字长。
 
 	TEMP::Label *str_label = TEMP::NewLabel();
-	char str_head = (char)s.size();
-	F::StringFrag *str_frag = new F::StringFrag(str_label, str_head + s);
+	//char str_head = (char)s.size();
+	//F::StringFrag *str_frag = new F::StringFrag(str_label, str_head + s);
+	F::StringFrag *str_frag = new F::StringFrag(str_label, s);
 	TR::AllocFrag(str_frag);
 	TR::Exp *ret_exp = new TR::ExExp(new T::NameExp(str_label));
 
@@ -922,59 +924,79 @@ TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
-  // TODO: Finish FunctionDec
-
 	//process declaration
-	//A::FunDecList *p = functions;
-	//while(p){
-	//  A::FunDec *func = p->head;
-	//  p = p->tail;
+	A::FunDecList *p = functions;
+	while(p){
+		A::FunDec *func = p->head;
+		p = p->tail;
 
-	//  TY::Ty *rety = TY::VoidTy::Instance();
-	//  if(func->result){
-	//    rety = tenv->Look(func->result);
-	//  }
-	//  TY::TyList *formals = make_formal_tylist(tenv,func->params);
-	//  if(venv->Look(func->name) != nullptr){
-	//    errormsg.Error(pos,"two functions have the same name");
-	//    continue;
-	//  }
+		TY::Ty *rety = TY::VoidTy::Instance();
+		if(func->result){
+			rety = tenv->Look(func->result);
+		}
 
-	//  E::FunEntry *func_ent = new E::FunEntry(
-	//      TR::Level::NewLevel(level),
-	//      label.
-	//      formals,
-	//      rety);
-	//  venv->Enter(func->name, func_ent);
-	//}
+		// check repeated func name
+		if(venv->Look(func->name) != nullptr){
+			errormsg.Error(pos,"two functions have the same name");
+			continue;
+		}
 
-	////process implementation
-	//p = functions;
-	//while(p){
-	//  A::FunDec *func = p->head;
-	//  p = p->tail;
+		// process formals
+		TY::TyList *formals = make_formal_tylist(tenv,func->params);
+		U::BoolList *escapes = nullptr;
+		A::FieldList *p_formals = func->params;
+		while(p_formals){
+			escapes = new U::BoolList(p_formals->head->escape, escapes);
+			p_formals = p_formals->tail;
+		}
 
-	//  venv->BeginScope();
-	//  A::FieldList *pf = func->params;
-	//  while(pf){
-	//    venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
-	//    pf = pf->tail;
-	//  }
-	//  F::FunEntry *func_ent = venv->Look(func->name);
-	//  TR::ExpAndTy body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
-	//  venv->EndScope();
+		E::FunEntry *func_ent = new E::FunEntry(
+				// (2)
+				TR::Level::NewLevel(level, TEMP::NamedLabel(func->name->Name()),escapes),
+				label,
+				formals,
+				rety);
+		venv->Enter(func->name, func_ent);
+	}
 
-	//  TY::Ty *rety = TY::VoidTy::Instance();
-	//  if(func->result){
-	//    rety = tenv->Look(func->result);
-	//    if(!rety->IsSameType(body_expty.ty))
-	//      errormsg.Error(func->pos,"func return type differs from body");
-	//  }
-	//  else {
-	//    if(!rety->IsSameType(body_expty.ty))
-	//      errormsg.Error(func->pos,"procedure returns value");
-	//  }
-	//}
+	//process implementation
+	p = functions;
+	while(p){
+		A::FunDec *func = p->head;
+		p = p->tail;
+
+		// Process single func
+		venv->BeginScope();
+
+		// Enter parameters
+		A::FieldList *pf = func->params;
+		while(pf){
+			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
+			pf = pf->tail;
+		}
+
+		E::FunEntry *func_ent = static_cast<E::FunEntry*>(venv->Look(func->name));
+
+		// (6) Function body
+		TR::ExpAndTy body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
+		// (4) (5) (7) (8)
+		T::Stm *func_body = func_ent->level->frame->ProcEntryExit1(body_expty.exp->UnNx());
+		// (1) (3) (9) (11) locate in procEntryExit3
+		TR::AllocFrag(new F::ProcFrag(func_body, func_ent->level->frame));
+
+		venv->EndScope();
+
+		TY::Ty *rety = TY::VoidTy::Instance();
+		if(func->result){
+			rety = tenv->Look(func->result);
+			if(!rety->IsSameType(body_expty.ty))
+				errormsg.Error(func->pos,"func return type differs from body");
+		}
+		else {
+			if(!rety->IsSameType(body_expty.ty))
+				errormsg.Error(func->pos,"procedure returns value");
+		}
+	}
 
   return new TR::ExExp(new T::ConstExp(0));
 }
@@ -1000,7 +1022,7 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 	// 变量定义中, transDec返回一个包含赋初值的赋值表达式的Tr_exp
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::MoveStm(
-				acc->access->ToExp(F::FP()),
+				acc->access->ToExp(new T::TempExp(F::FP())),
 				init_expty.exp->UnEx()));
 
   return ret_exp;
