@@ -242,9 +242,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 				new T::BinopExp(
 					T::PLUS_OP,
 					fp,
-					new T::ConstExp(0)
-					)
-				);
+					new T::ConstExp(0)));
 		p_lv = p_lv->parent;
 	}
 
@@ -267,9 +265,7 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 						new T::BinopExp(
 							T::PLUS_OP,
 							var_expty.exp->UnEx(),
-							new T::ConstExp(offset)
-							)
-						);
+							new T::ConstExp(offset)));
 				return TR::ExpAndTy(new TR::ExExp(e),p->head->ty);
 			}
 			p = p->tail;
@@ -296,9 +292,7 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 				new T::BinopExp(
 					T::PLUS_OP,
 					var_expty.exp->UnEx(),
-					sub_expty.exp->UnEx()
-					)
-				);
+					sub_expty.exp->UnEx()));
 		return TR::ExpAndTy(new TR::ExExp(e),arrty->ty);
 	}
 	errormsg.Error(pos,"array type required");
@@ -457,8 +451,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 					left_expty.exp->UnEx(),
 					right_expty.exp->UnEx(),
 					nullptr,
-					nullptr
-					);
+					nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -469,8 +462,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 					left_expty.exp->UnEx(),
 					right_expty.exp->UnEx(),
 					nullptr,
-					nullptr
-					);
+					nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -481,8 +473,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 					left_expty.exp->UnEx(),
 					right_expty.exp->UnEx(),
 					nullptr,
-					nullptr
-					);
+					nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -493,8 +484,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 					left_expty.exp->UnEx(),
 					right_expty.exp->UnEx(),
 					nullptr,
-					nullptr
-					);
+					nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -505,8 +495,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 					left_expty.exp->UnEx(),
 					right_expty.exp->UnEx(),
 					nullptr,
-					nullptr
-					);
+					nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -517,8 +506,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 					left_expty.exp->UnEx(),
 					right_expty.exp->UnEx(),
 					nullptr,
-					nullptr
-					);
+					nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -566,9 +554,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 			new T::TempExp(record_t),
 			new T::CallExp(
 				new T::NameExp( TEMP::NamedLabel("allocRecord")),
-				runtime_args
-				)
-			);
+				runtime_args));
 
 	// init record body
 	T::Stm *init_stm = nullptr;
@@ -578,11 +564,8 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 					new T::BinopExp(
 						T::PLUS_OP,
 						new T::TempExp(record_t),
-						new T::ConstExp(i * F::X64Frame::wordSize)
-						)
-					),
-				record_exps[i]->UnEx()
-				);
+						new T::ConstExp(i * F::X64Frame::wordSize))),
+				record_exps[i]->UnEx());
 		init_stm = new T::SeqStm(mv_stm, init_stm);
 	}
 
@@ -590,9 +573,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 	TR::Exp* ret_exp = new TR::ExExp(
 			new T::EseqExp(
 				new T::SeqStm( alloc_stm, init_stm),
-				new T::TempExp(record_t)
-				)
-			);
+				new T::TempExp(record_t)));
 
 	return TR::ExpAndTy(ret_exp,ty);
 }
@@ -621,9 +602,7 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 	TR::Exp *ret_exp = new TR::ExExp(
 			new T::EseqExp(
 				seq_stms,
-				p_expty.exp->UnEx()
-				)
-			);
+				p_expty.exp->UnEx()));
 	
   return TR::ExpAndTy(ret_exp, ret_ty);
 }
@@ -651,9 +630,7 @@ TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::MoveStm(
 				var_expty.exp->UnEx(),
-				exp_expty.exp->UnEx()
-				)
-			);
+				exp_expty.exp->UnEx()));
   return TR::ExpAndTy(ret_exp, TY::VoidTy::Instance());
 }
 
@@ -702,33 +679,23 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 					new T::LabelStm(else_label),
 					new T::MoveStm(
 						new T::TempExp(if_result),
-						e3
-						)
-					),
-				new T::LabelStm(end_label)
-				);
+						e3)),
+				new T::LabelStm(end_label));
 		T::Stm *then_seq = new T::SeqStm(
 				new T::LabelStm(then_label),
 				new T::SeqStm(
 					new T::MoveStm(
 						new T::TempExp(if_result),
-						then_expty.exp->UnEx()
-						),
+						then_expty.exp->UnEx()),
 					new T::JumpStm(
 						new T::NameExp(end_label),
-						new TEMP::LabelList(end_label,nullptr)
-						)
-					)
-				);
+						new TEMP::LabelList(end_label,nullptr))));
 		ret_exp = new TR::ExExp(
 				new T::EseqExp(
 					new T::SeqStm(
 						e1.stm,
-						new T::SeqStm( then_seq, else_seq)
-						),
-					new T::TempExp(if_result)
-					)
-				);
+						new T::SeqStm( then_seq, else_seq)),
+					new T::TempExp(if_result)));
 	}
 	else{
 		TEMP::Label *then_label = TEMP::NewLabel(),
@@ -745,19 +712,13 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 					then_expty.exp->UnNx(),
 					new T::JumpStm(
 						new T::NameExp(end_label),
-						new TEMP::LabelList(end_label,nullptr)
-						)
-					)
-				);
+						new TEMP::LabelList(end_label,nullptr))));
 		ret_exp = new TR::NxExp(
 				new T::SeqStm(
 					e1.stm,
 					new T::SeqStm(
 						then_seq,
-						else_seq
-						)
-					)
-				);
+						else_seq)));
 	}
 	
   return TR::ExpAndTy(ret_exp, ret_ty);
@@ -781,23 +742,17 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
 			test_expty.exp->UnEx(),
 			new T::ConstExp(0),
 			done_label,
-			body_label
-			);
+			body_label);
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::SeqStm(
 				new T::SeqStm(
 					new T::LabelStm(test_label),
-					test_stm
-					),
+					test_stm),
 				new T::SeqStm(
 					new T::SeqStm(
 						new T::LabelStm(body_label),
-						body_expty.exp->UnNx()
-						),
-					new T::LabelStm(done_label)
-					)
-				)
-			);
+						body_expty.exp->UnNx()),
+					new T::LabelStm(done_label))));
 
   return TR::ExpAndTy(ret_exp, TY::VoidTy::Instance());
 }
@@ -863,20 +818,24 @@ TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
-	// TODO: finish let exp
 	A::DecList *p = decs;	
+	TR::ExExp *ret_exp = new TR::ExExp(new T::EseqExp(nullptr, nullptr));
+	T::Stm **ret_tail = &static_cast<T::EseqExp*>(ret_exp->exp)->stm;
 
 	venv->BeginScope();
 	tenv->BeginScope();
 	while(p != nullptr){
-		p->head->Translate(venv,tenv,level,label);
+		TR::Exp *p_exp = p->head->Translate(venv,tenv,level,label);
+		*ret_tail = new T::SeqStm(p_exp->UnNx(), nullptr);
+		ret_tail = &static_cast<T::SeqStm*>(*ret_tail)->right;
 		p = p->tail;
 	}
-	TR::ExpAndTy ret_expty = body->Translate(venv,tenv,level,label);
+	TR::ExpAndTy body_expty = body->Translate(venv,tenv,level,label);
+	static_cast<T::EseqExp*>(ret_exp->exp)->exp = body_expty.exp->UnEx();
 	venv->EndScope();
 	tenv->EndScope();
 
-  return ret_expty;
+  return TR::ExpAndTy(ret_exp, body_expty.ty);
 }
 
 TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
