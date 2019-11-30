@@ -238,11 +238,12 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 	TR::Level *dst_lv = ent->access->level, *p_lv = level;
 	T::Exp *fp = new T::TempExp(F::FP());
 	while(p_lv != dst_lv){
-		fp = new T::MemExp(
-				new T::BinopExp(
-					T::PLUS_OP,
-					fp,
-					new T::ConstExp(0)));
+		//fp = new T::MemExp(
+		//    new T::BinopExp(
+		//      T::PLUS_OP,
+		//      fp,
+		//      new T::ConstExp(0)));
+		fp = p_lv->frame->Formals()->head->ToExp(fp);
 		p_lv = p_lv->parent;
 	}
 
@@ -254,6 +255,8 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
+	// var should be translated into an T::MemExp pointing to the record body
+	// the certain field of the body can be located by counting offset.
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
 	if(var_expty.ty->ActualTy()->kind == TY::Ty::RECORD){
 		TY::RecordTy *recty = static_cast<TY::RecordTy*>(var_expty.ty->ActualTy());
@@ -283,6 +286,8 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
                                      S::Table<TY::Ty> *tenv, TR::Level *level,
                                      TEMP::Label *label) const {
+	// var should be translated into an T::MemExp pointing to the record body
+	// the certain field of the body can be located by calculating offset by subscript.
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
 	if(var_expty.ty->kind == TY::Ty::ARRAY){
 		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(var_expty.ty);
@@ -375,11 +380,13 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 
 		// add static link as the first arg
 		TR::Level *plv = level,
-			*lv = static_cast<E::FunEntry*>(ent)->level->parent;
-		T::Exp *sl = new T::NameExp(lv->frame->Name());
+			*lv = static_cast<E::FunEntry*>(ent)->level;
+		//T::Exp *sl = new T::NameExp(lv->frame->Name());
+		T::Exp *sl = new T::TempExp(F::FP());
 		while(lv != plv){
 			//sl = new T::NameExp(new T::MemExp(sl));
-			sl = new T::MemExp(sl);
+			//sl = new T::MemExp(sl);
+			sl = lv->frame->Formals()->head->ToExp(sl);
 			lv = lv->parent;
 		}
 		ret_args = new T::ExpList(sl,ret_args);
@@ -807,7 +814,6 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
-	// TODO: check if label is invalid
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::JumpStm(
 				new T::NameExp(label),
