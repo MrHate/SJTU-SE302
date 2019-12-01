@@ -7,6 +7,7 @@
 #include "tiger/translate/tree.h"
 #include "tiger/util/util.h"
 
+
 namespace F {
 
 class Access {
@@ -126,8 +127,19 @@ class FragList {
 
 
 // Global regs
-TEMP::Temp* FP();
-TEMP::Temp* RV();
+
+TEMP::Temp* FP() ;
+TEMP::Temp* RV() ;
+TEMP::Temp* RSP() ;
+TEMP::Temp* RAX() ;
+TEMP::Temp* RDI() ;
+TEMP::Temp* RSI() ;
+TEMP::Temp* RDX() ;
+TEMP::Temp* RCX() ;
+TEMP::Temp* R8() ;
+TEMP::Temp* R9() ;
+TEMP::Temp* R10() ;
+TEMP::Temp* R11() ;
 
 //AS::Proc *F_procEntryExit3(Frame *frame, AS::InstrList *il){return nullptr;}
 
