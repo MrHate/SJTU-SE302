@@ -205,7 +205,8 @@ Level *Outermost() {
   static Level *lv = nullptr;
   if (lv != nullptr) return lv;
 
-  lv = new Level(nullptr, nullptr);
+	lv = Level::NewLevel(nullptr, TEMP::NewLabel(), nullptr);
+  //lv = new Level(new F::X64Frame(TEMP::NewLabel(), nullptr), nullptr);
   return lv;
 }
 
@@ -221,7 +222,8 @@ F::FragList *TranslateProgram(A::Exp *root) {
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(0, "Translation begins...");
 #endif
-	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), Outermost(), nullptr).exp->UnNx();
+	Level *main_lv = Level::NewLevel(Outermost(), TEMP::NewLabel(), nullptr);
+	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), main_lv, nullptr).exp->UnNx();
 	F::Frag *frag = new F::ProcFrag(stm, nullptr);
   return AllocFrag(frag);
 }
@@ -234,7 +236,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"simplevar[sym]"+sym->Name());
+	errormsg.Error(pos,"simplevar[%s]", sym->Name().c_str());
 #endif
 	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
 	if(ent == nullptr){
@@ -242,21 +244,26 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	}
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"simplevar[%s] tracing static link", sym->Name().c_str());
+#endif
 	// trace static link
 	TR::Level *dst_lv = ent->access->level, *p_lv = level;
 	T::Exp *fp = new T::TempExp(F::FP());
 	while(p_lv != dst_lv){
-		//fp = new T::MemExp(
-		//    new T::BinopExp(
-		//      T::PLUS_OP,
-		//      fp,
-		//      new T::ConstExp(0)));
 		fp = p_lv->frame->Formals()->head->ToExp(fp);
 		p_lv = p_lv->parent;
 	}
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"simplevar[%s] locating", sym->Name().c_str());
+#endif
 	// calculate data location based on its frame pointer
 	TR::Exp *exp = new TR::ExExp(ent->access->access->ToExp(fp));
+
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"simplevar[%s] translation ends", sym->Name().c_str());
+#endif
   return TR::ExpAndTy(exp, ent->ty);
 }
 
@@ -333,7 +340,7 @@ TR::ExpAndTy NilExp::Translate(S::Table<E::EnvEntry> *venv,
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"nilexp");
 #endif
-  return TR::ExpAndTy(nullptr, TY::NilTy::Instance());
+  return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::NilTy::Instance());
 }
 
 TR::ExpAndTy IntExp::Translate(S::Table<E::EnvEntry> *venv,
@@ -349,7 +356,7 @@ TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"stringexp[s]%s",s.c_str());
+	errormsg.Error(pos,"stringexp[%s]", s.c_str());
 #endif
 	// (p117)
 	// Tiger字符串应当能够表示任意8位码
@@ -414,18 +421,18 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 	errormsg.Error(pos,"callexp[%s] create static link",func->Name().c_str());
 #endif
 		// add static link as the first arg
-		TR::Level *plv = level,
-			*lv = static_cast<E::FunEntry*>(ent)->level;
+		TR::Level *caller_lv = level->parent,
+			*callee_lv = static_cast<E::FunEntry*>(ent)->level;
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"callexp[%s] create static link ..1", func->Name().c_str());
 #endif
 		//T::Exp *sl = new T::NameExp(lv->frame->Name());
 		T::Exp *sl = new T::TempExp(F::FP());
-		while(lv != plv){
+		while(callee_lv && callee_lv != caller_lv){
 			//sl = new T::NameExp(new T::MemExp(sl));
 			//sl = new T::MemExp(sl);
-			sl = lv->frame->Formals()->head->ToExp(sl);
-			lv = lv->parent;
+			sl = callee_lv->frame->Formals()->head->ToExp(sl);
+			callee_lv = callee_lv->parent;
 		}
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
@@ -908,11 +915,18 @@ TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
 		ret_tail = &static_cast<T::SeqStm*>(*ret_tail)->right;
 		p = p->tail;
 	}
+
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"letexp-body");
+#endif
 	TR::ExpAndTy body_expty = body->Translate(venv,tenv,level,label);
 	static_cast<T::EseqExp*>(ret_exp->exp)->exp = body_expty.exp->UnEx();
 	venv->EndScope();
 	tenv->EndScope();
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"letexp translation ends");
+#endif
   return TR::ExpAndTy(ret_exp, body_expty.ty);
 }
 
@@ -1014,15 +1028,16 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 
 		// Process single func
 		venv->BeginScope();
+		E::FunEntry *func_ent = static_cast<E::FunEntry*>(venv->Look(func->name));
 
 		// Enter parameters
 		A::FieldList *pf = func->params;
 		while(pf){
-			venv->Enter(pf->head->name,new E::VarEntry(tenv->Look(pf->head->typ)));
+			TR::Access *formal_acc = TR::Access::AllocLocal(func_ent->level, true);
+			venv->Enter(pf->head->name,new E::VarEntry(formal_acc, tenv->Look(pf->head->typ)));
 			pf = pf->tail;
 		}
 
-		E::FunEntry *func_ent = static_cast<E::FunEntry*>(venv->Look(func->name));
 
 		// (6) Function body
 		TR::ExpAndTy body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
@@ -1070,12 +1085,12 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 		}
 	}
 	if(init_expty.ty == nullptr) errormsg.Error(pos,"1no such type");
-	venv->Enter(var,new E::VarEntry(init_expty.ty,false));
 
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"vardec[%s] allocating in frame", var->Name().c_str());
 #endif
-	TR::Access *acc = TR::Access::AllocLocal(level,true);
+	TR::Access *acc = TR::Access::AllocLocal(level, true);
+	venv->Enter(var,new E::VarEntry(acc, init_expty.ty, false));
 
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"vardec[%s] creating Tr_exp", var->Name().c_str());
