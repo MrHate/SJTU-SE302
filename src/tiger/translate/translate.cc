@@ -310,8 +310,8 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 	// var should be translated into an T::MemExp pointing to the record body
 	// the certain field of the body can be located by calculating offset by subscript.
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
-	if(var_expty.ty->kind == TY::Ty::ARRAY){
-		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(var_expty.ty);
+	if(var_expty.ty->ActualTy()->kind == TY::Ty::ARRAY){
+		TY::ArrayTy *arrty = static_cast<TY::ArrayTy*>(var_expty.ty->ActualTy());
 		//calculate exp to get offset
 		TR::ExpAndTy sub_expty = subscript->Translate(venv,tenv,level,label);
 		T::Exp *e = new T::MemExp(
@@ -319,8 +319,14 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 					T::PLUS_OP,
 					var_expty.exp->UnEx(),
 					sub_expty.exp->UnEx()));
+#ifdef TRASNLATE_DEBUG_MSG
+		errormsg.Error(pos,"subscriptvar array type: %s", arrty->ty->PrintActualTy().c_str());
+#endif
 		return TR::ExpAndTy(new TR::ExExp(e),arrty->ty);
 	}
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"subscriptvar wrong type: %s", var_expty.ty->PrintActualTy().c_str());
+#endif
 	errormsg.Error(pos,"array type required");
   return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 }
@@ -684,8 +690,14 @@ TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label),
 		exp_expty = exp->Translate(venv,tenv,level,label);
 
-	if(!var_expty.ty->IsSameType(exp_expty.ty))
+	if(!var_expty.ty->IsSameType(exp_expty.ty)){
 		errormsg.Error(pos,"unmatched assign exp");
+#ifdef TRASNLATE_DEBUG_MSG
+		errormsg.Error(pos,">err< unmatched assign exp left[%s] right[%s]", 
+				var_expty.ty->PrintActualTy().c_str(),
+				exp_expty.ty->PrintActualTy().c_str());
+#endif
+	}
 
 	// check if being loop var
 	if(var->kind == A::Var::SIMPLE){
@@ -1066,9 +1078,8 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                            TR::Level *level, TEMP::Label *label) const {
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"vardec[%s]", var->Name().c_str());
+	errormsg.Error(pos,"vardec[%s] translating init..", var->Name().c_str());
 	if(typ)errormsg.Error(pos,"[typ]"+typ->Name());
-	errormsg.Error(pos,"translating init..");
 #endif
 	TR::ExpAndTy init_expty = init->Translate(venv,tenv,level,label);
 
@@ -1137,6 +1148,9 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 	while(p){
 		A::NameAndTy *nt = p->head;
 		TY::Ty *ty = nt->ty->Translate(tenv);
+#ifdef TRASNLATE_DEBUG_MSG
+		errormsg.Error(pos,"typedec[%s]: %s", nt->name->Name().c_str(), ty->PrintActualTy().c_str());
+#endif
 		if(ty != nullptr){
 			TY::NameTy *nty = static_cast<TY::NameTy*>(tenv->Look(nt->name));
 			nty->ty = ty;
@@ -1163,7 +1177,7 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 
 TY::Ty *NameTy::Translate(S::Table<TY::Ty> *tenv) const {
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"NameTy[name]"+name->Name());
+	errormsg.Error(pos,"NameTy[%s]", name->Name().c_str());
 #endif
 	TY::Ty *ty = tenv->Look(name);
 	if(ty == nullptr){
@@ -1192,9 +1206,12 @@ TY::Ty *RecordTy::Translate(S::Table<TY::Ty> *tenv) const {
 
 TY::Ty *ArrayTy::Translate(S::Table<TY::Ty> *tenv) const {
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"ArrayTy[name]"+array->Name());
+	errormsg.Error(pos,"ArrayTy[%s]", array->Name().c_str());
 #endif
 	TY::Ty *ty = tenv->Look(array);
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"ArrayTy[%s]: %s", array->Name().c_str(), ty->PrintActualTy().c_str());
+#endif
 	if(ty == nullptr){
 		errormsg.Error(pos,"4no such type");
 		return nullptr;
