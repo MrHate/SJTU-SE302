@@ -48,7 +48,7 @@ T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 }
 
 AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
-	return nullptr;
+	return new AS::Proc("", il, "");
 }
 
 TEMP::Temp* FP() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }

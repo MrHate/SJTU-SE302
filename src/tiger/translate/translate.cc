@@ -11,6 +11,8 @@
 #include "tiger/semant/types.h"
 #include "tiger/util/util.h"
 
+#define TRASNLATE_DEBUG_MSG
+
 extern EM::ErrorMsg errormsg;
 
 namespace {
@@ -216,6 +218,9 @@ F::FragList *AllocFrag(F::Frag *frag){
 }
 
 F::FragList *TranslateProgram(A::Exp *root) {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(0, "Translation begins...");
+#endif
 	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), Outermost(), nullptr).exp->UnNx();
 	F::Frag *frag = new F::ProcFrag(stm, nullptr);
   return AllocFrag(frag);
@@ -228,6 +233,9 @@ namespace A {
 TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"simplevar[sym]"+sym->Name());
+#endif
 	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
 	if(ent == nullptr){
 		errormsg.Error(pos,"undefined variable %s",sym->Name().c_str());
@@ -255,6 +263,9 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"fieldvar[sym]"+sym->Name());
+#endif
 	// var should be translated into an T::MemExp pointing to the record body
 	// the certain field of the body can be located by counting offset.
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
@@ -286,6 +297,9 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
                                      S::Table<TY::Ty> *tenv, TR::Level *level,
                                      TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"subscriptvar");
+#endif
 	// var should be translated into an T::MemExp pointing to the record body
 	// the certain field of the body can be located by calculating offset by subscript.
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label);
@@ -307,24 +321,36 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy VarExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"varexp");
+#endif
 	return var->Translate(venv,tenv,level,label);
 }
 
 TR::ExpAndTy NilExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"nilexp");
+#endif
   return TR::ExpAndTy(nullptr, TY::NilTy::Instance());
 }
 
 TR::ExpAndTy IntExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"intexp[i]%d",i);
+#endif
   return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(i)), TY::IntTy::Instance());
 }
 
 TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"stringexp[s]%s",s.c_str());
+#endif
 	// (p117)
 	// Tiger字符串应当能够表示任意8位码
 	// 实现: 使用一个字符串指针指向一个字, 此字中的整数给出字符串长度(字符个数)
@@ -347,6 +373,9 @@ TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"callexp[%s]", func->Name().c_str());
+#endif
   E::EnvEntry *ent = venv->Look(func);
 	if(ent == nullptr){
 		errormsg.Error(pos,"undefined function %s",func->Name().c_str());
@@ -358,6 +387,9 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		// check actuals
 		TY::TyList *formals = static_cast<E::FunEntry*>(ent)->formals;
 		A::ExpList *p = args;
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"callexp[%s] translate formals", func->Name().c_str());
+#endif
 		while(p && formals){
 			TY::Ty *a_arg = formals->head;
 
@@ -378,9 +410,15 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 			errormsg.Error(pos,"too many params in function %s",func->Name().c_str());
 		}
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"callexp[%s] create static link",func->Name().c_str());
+#endif
 		// add static link as the first arg
 		TR::Level *plv = level,
 			*lv = static_cast<E::FunEntry*>(ent)->level;
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"callexp[%s] create static link ..1", func->Name().c_str());
+#endif
 		//T::Exp *sl = new T::NameExp(lv->frame->Name());
 		T::Exp *sl = new T::TempExp(F::FP());
 		while(lv != plv){
@@ -389,12 +427,18 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 			sl = lv->frame->Formals()->head->ToExp(sl);
 			lv = lv->parent;
 		}
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
+#endif
 		ret_args = new T::ExpList(sl,ret_args);
 
 		T::Exp *ret_exp = new T::CallExp(
 				new T::NameExp(static_cast<E::FunEntry*>(ent)->label),
 				ret_args);
 		TY::Ty *ret_ty = static_cast<E::FunEntry*>(ent)->result;
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"callexp[%s] translation ends", func->Name().c_str());
+#endif
 		return TR::ExpAndTy(new TR::ExExp(ret_exp), ret_ty);
 	}
 	else{
@@ -406,6 +450,9 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"opexp");
+#endif
 	TR::ExpAndTy left_expty = left->Translate(venv,tenv,level,label),
 		right_expty = right->Translate(venv,tenv,level,label);
 
@@ -530,6 +577,10 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"recordexp");
+	errormsg.Error(pos,"[typ]"+typ->Name());
+#endif
 	TY::Ty *ty = tenv->Look(typ);
 	if(ty == nullptr){
 		errormsg.Error(pos,"undefined type %s",typ->Name().c_str());
@@ -588,6 +639,9 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos, "seqexp");
+#endif
 	A::ExpList *p = seq;
 	T::Stm *seq_stms = nullptr;
 
@@ -617,6 +671,9 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"assignexp");
+#endif
 	TR::ExpAndTy var_expty = var->Translate(venv,tenv,level,label),
 		exp_expty = exp->Translate(venv,tenv,level,label);
 
@@ -644,6 +701,9 @@ TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"ifexp");
+#endif
 	TR::ExpAndTy flag_expty = test->Translate(venv,tenv,level,label),
 		then_expty = then->Translate(venv,tenv,level,label);
 
@@ -734,6 +794,9 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"whileexp");
+#endif
 
 	TEMP::Label *test_label = TEMP::NewLabel(),
 		*body_label = TEMP::NewLabel(),
@@ -767,6 +830,9 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"forexp");
+#endif
 	//TR::ExpAndTy lo_expty = lo->Translate(venv,tenv,level,label),
 	//  hi_expty = hi->Translate(venv,tenv,level,label);
 
@@ -814,6 +880,9 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"breakexp");
+#endif
 	TR::Exp *ret_exp = new TR::NxExp(
 			new T::JumpStm(
 				new T::NameExp(label),
@@ -824,6 +893,9 @@ TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"letexp-declaration");
+#endif
 	A::DecList *p = decs;	
 	TR::ExExp *ret_exp = new TR::ExExp(new T::EseqExp(nullptr, nullptr));
 	T::Stm **ret_tail = &static_cast<T::EseqExp*>(ret_exp->exp)->stm;
@@ -847,6 +919,10 @@ TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"arrayexp");
+	errormsg.Error(pos,"[typ]"+typ->Name());
+#endif
 	TY::Ty *ret_ty = tenv->Look(typ);
 	TR::ExpAndTy init_expty = init->Translate(venv,tenv,level,label),
 		size_expty = size->Translate(venv,tenv,level,label);
@@ -883,12 +959,18 @@ TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
 TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"voidexp");
+#endif
   return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
 }
 
 TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"funcdec");
+#endif
 	//process declaration
 	A::FunDecList *p = functions;
 	while(p){
@@ -968,7 +1050,16 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 
 TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                            TR::Level *level, TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"vardec[%s]", var->Name().c_str());
+	if(typ)errormsg.Error(pos,"[typ]"+typ->Name());
+	errormsg.Error(pos,"translating init..");
+#endif
 	TR::ExpAndTy init_expty = init->Translate(venv,tenv,level,label);
+
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"vardec[%s] check type matching", var->Name().c_str());
+#endif
 	if(typ){
 		if(!init_expty.ty->IsSameType(tenv->Look(typ))){
 			errormsg.Error(pos,"type mismatch");
@@ -981,8 +1072,14 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 	if(init_expty.ty == nullptr) errormsg.Error(pos,"1no such type");
 	venv->Enter(var,new E::VarEntry(init_expty.ty,false));
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"vardec[%s] allocating in frame", var->Name().c_str());
+#endif
 	TR::Access *acc = TR::Access::AllocLocal(level,true);
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"vardec[%s] creating Tr_exp", var->Name().c_str());
+#endif
 	// (p120)
 	// 变量定义中, transDec返回一个包含赋初值的赋值表达式的Tr_exp
 	TR::Exp *ret_exp = new TR::NxExp(
@@ -990,11 +1087,17 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 				acc->access->ToExp(new T::TempExp(F::FP())),
 				init_expty.exp->UnEx()));
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"vardec[%s] translation ends", var->Name().c_str());
+#endif
   return ret_exp;
 }
 
 TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                             TR::Level *level, TEMP::Label *label) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"typedec");
+#endif
 	A::NameAndTyList *p = types;
 	//enter all names
 	while(p){
@@ -1044,6 +1147,9 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 }
 
 TY::Ty *NameTy::Translate(S::Table<TY::Ty> *tenv) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"NameTy[name]"+name->Name());
+#endif
 	TY::Ty *ty = tenv->Look(name);
 	if(ty == nullptr){
 		errormsg.Error(pos,"2no such type");
@@ -1056,6 +1162,9 @@ TY::Ty *NameTy::Translate(S::Table<TY::Ty> *tenv) const {
 }
 
 TY::Ty *RecordTy::Translate(S::Table<TY::Ty> *tenv) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"RecordTy");
+#endif
 	A::FieldList *p = record;
 	while(p){
 		if(tenv->Look(p->head->typ) == nullptr){
@@ -1067,6 +1176,9 @@ TY::Ty *RecordTy::Translate(S::Table<TY::Ty> *tenv) const {
 }
 
 TY::Ty *ArrayTy::Translate(S::Table<TY::Ty> *tenv) const {
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"ArrayTy[name]"+array->Name());
+#endif
 	TY::Ty *ty = tenv->Look(array);
 	if(ty == nullptr){
 		errormsg.Error(pos,"4no such type");
