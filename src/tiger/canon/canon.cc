@@ -65,7 +65,7 @@ C::ExpRefList* get_call_rlist(T::Exp* exp) {
 }
 
 /* processes stm so that it contains no ESEQ nodes */
-T::Stm* do_stm(T::Stm* stm) { return stm->Canon(stm); }
+T::Stm* do_stm(T::Stm* stm) { if(stm)return stm->Canon(stm); return new T::ExpStm(new T::ConstExp(0));}
 
 C::StmAndExp do_exp(T::Exp* exp) { return exp->Canon(exp); }
 

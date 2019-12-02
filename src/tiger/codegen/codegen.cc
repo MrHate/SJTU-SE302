@@ -148,6 +148,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 			{
 				T::NameExp *e0 = static_cast<T::NameExp*>(e);
 				TEMP::Temp *r = TEMP::Temp::NewTemp();
+				assert(e0->name);
 				emit(new AS::MoveInstr(
 							// movq $imm, D
 							"movq $" + TEMP::LabelString(e0->name) + ", `d0",
@@ -256,6 +257,18 @@ void munchStm(T::Stm* s){
 			break;
 		case T::Stm::EXP:
 			munchExp(static_cast<T::ExpStm*>(s)->exp);
+			break;
+		case T::Stm::CJUMP:
+			assert(0);
+		case T::Stm::JUMP:
+			{
+				T::JumpStm *e0 = static_cast<T::JumpStm*>(s);
+				emit(new AS::OperInstr(
+							"jmp `j0",
+							nullptr,
+							nullptr,
+							new AS::Targets(e0->jumps)));
+			}
 			break;
 		default:
 			assert(0);

@@ -11,7 +11,7 @@
 #include "tiger/semant/types.h"
 #include "tiger/util/util.h"
 
-#define TRASNLATE_DEBUG_MSG
+//#define TRASNLATE_DEBUG_MSG
 
 extern EM::ErrorMsg errormsg;
 
@@ -432,11 +432,8 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"callexp[%s] create static link ..1", func->Name().c_str());
 #endif
-		//T::Exp *sl = new T::NameExp(lv->frame->Name());
 		T::Exp *sl = new T::TempExp(F::FP());
 		while(callee_lv && callee_lv != caller_lv){
-			//sl = new T::NameExp(new T::MemExp(sl));
-			//sl = new T::MemExp(sl);
 			sl = callee_lv->frame->Formals()->head->ToExp(sl);
 			callee_lv = callee_lv->parent;
 		}
@@ -446,7 +443,8 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		ret_args = new T::ExpList(sl,ret_args);
 
 		T::Exp *ret_exp = new T::CallExp(
-				new T::NameExp(static_cast<E::FunEntry*>(ent)->label),
+				new T::NameExp(func),
+				//new T::NameExp(static_cast<E::FunEntry*>(ent)->label),
 				ret_args);
 		TY::Ty *ret_ty = static_cast<E::FunEntry*>(ent)->result;
 #ifdef TRASNLATE_DEBUG_MSG
@@ -917,14 +915,14 @@ TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
 #endif
 	A::DecList *p = decs;	
 	TR::ExExp *ret_exp = new TR::ExExp(new T::EseqExp(nullptr, nullptr));
-	T::Stm **ret_tail = &static_cast<T::EseqExp*>(ret_exp->exp)->stm;
+	T::Stm **ret_tail = &dynamic_cast<T::EseqExp*>(ret_exp->exp)->stm;
 
 	venv->BeginScope();
 	tenv->BeginScope();
 	while(p != nullptr){
 		TR::Exp *p_exp = p->head->Translate(venv,tenv,level,label);
 		*ret_tail = new T::SeqStm(p_exp->UnNx(), nullptr);
-		ret_tail = &static_cast<T::SeqStm*>(*ret_tail)->right;
+		ret_tail = &dynamic_cast<T::SeqStm*>(*ret_tail)->right;
 		p = p->tail;
 	}
 

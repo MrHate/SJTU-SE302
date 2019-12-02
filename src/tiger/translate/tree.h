@@ -213,7 +213,7 @@ class NameExp : public Exp {
  public:
   TEMP::Label* name;
 
-  NameExp(TEMP::Label* name) : Exp(NAME), name(name) {}
+  NameExp(TEMP::Label* name) : Exp(NAME), name(name) { assert(name); }
   void Print(FILE* out, int d) const override;
 
   /*Lab6 only*/
