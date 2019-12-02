@@ -11,7 +11,7 @@
 #include "tiger/semant/types.h"
 #include "tiger/util/util.h"
 
-//#define TRASNLATE_DEBUG_MSG
+#define TRASNLATE_DEBUG_MSG
 
 extern EM::ErrorMsg errormsg;
 
@@ -448,7 +448,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 				ret_args);
 		TY::Ty *ret_ty = static_cast<E::FunEntry*>(ent)->result;
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"callexp[%s] translation ends", func->Name().c_str());
+	errormsg.Error(pos,"callexp[%s] returns: %s", func->Name().c_str(), ret_ty->PrintActualTy().c_str());
 #endif
 		return TR::ExpAndTy(new TR::ExExp(ret_exp), ret_ty);
 	}
@@ -676,6 +676,9 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 				seq_stms,
 				p_expty.exp->UnEx()));
 	
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos, "seqexp returns: %s", ret_ty->PrintActualTy().c_str());
+#endif
   return TR::ExpAndTy(ret_exp, ret_ty);
 }
 
@@ -805,6 +808,9 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
 						else_seq)));
 	}
 	
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"ifexp returns type: %s", ret_ty->PrintActualTy().c_str());
+#endif
   return TR::ExpAndTy(ret_exp, ret_ty);
 }
 
@@ -1027,6 +1033,10 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 				label,
 				formals,
 				rety);
+
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"funcdec[%s]: %s", func->name->Name().c_str(), rety->PrintActualTy().c_str());
+#endif
 		venv->Enter(func->name, func_ent);
 	}
 
@@ -1080,6 +1090,9 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 	if(typ)errormsg.Error(pos,"[typ]"+typ->Name());
 #endif
 	TR::ExpAndTy init_expty = init->Translate(venv,tenv,level,label);
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"vardec[%s] init type: %s", var->Name().c_str(), init_expty.ty->PrintActualTy().c_str());
+#endif
 
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"vardec[%s] check type matching", var->Name().c_str());
@@ -1089,7 +1102,8 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 			errormsg.Error(pos,"type mismatch");
 		}
 	}else{
-		if(init_expty.ty->IsSameType(TY::NilTy::Instance())){
+		if(init_expty.ty->ActualTy()->kind != TY::Ty::RECORD &&
+				init_expty.ty->IsSameType(TY::NilTy::Instance())){
 			errormsg.Error(pos,"init should not be nil without type specified");
 		}
 	}
