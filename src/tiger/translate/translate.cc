@@ -224,7 +224,7 @@ F::FragList *TranslateProgram(A::Exp *root) {
 #endif
 	Level *main_lv = Level::NewLevel(Outermost(), TEMP::NewLabel(), nullptr);
 	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), main_lv, nullptr).exp->UnNx();
-	F::Frag *frag = new F::ProcFrag(stm, nullptr);
+	F::Frag *frag = new F::ProcFrag(stm, main_lv->frame);
   return AllocFrag(frag);
 }
 
