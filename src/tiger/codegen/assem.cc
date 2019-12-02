@@ -1,5 +1,7 @@
 #include "tiger/codegen/assem.h"
 
+#define ASSEM_DEBUG_MSG
+
 namespace {
 
 TEMP::Temp* nth_temp(TEMP::TempList* list, int i) {
@@ -66,17 +68,26 @@ static std::string format(std::string assem, TEMP::TempList* dst,
 }
 
 void OperInstr::Print(FILE* out, TEMP::Map* m) const {
+#ifdef ASSEM_DEBUG_MSG
+	fprintf(stderr, "OperPrint\n");
+#endif
   std::string result =
       format(this->assem, this->dst, this->src, this->jumps, m);
   fprintf(out, "%s\n", result.c_str());
 }
 
 void LabelInstr::Print(FILE* out, TEMP::Map* m) const {
+#ifdef ASSEM_DEBUG_MSG
+	fprintf(stderr, "LabelPrint\n");
+#endif
   std::string result = format(this->assem, nullptr, nullptr, nullptr, m);
   fprintf(out, "%s:\n", result.c_str());
 }
 
 void MoveInstr::Print(FILE* out, TEMP::Map* m) const {
+#ifdef ASSEM_DEBUG_MSG
+	fprintf(stderr, "MovePrint\n");
+#endif
   if ((this->dst == nullptr) && (this->src == nullptr)) {
     std::size_t srcpos = this->assem.find_first_of('%');
     if (srcpos != std::string::npos) {
@@ -94,10 +105,16 @@ void MoveInstr::Print(FILE* out, TEMP::Map* m) const {
 }
 
 void InstrList::Print(FILE* out, TEMP::Map* m) const {
-  const InstrList* p = this;
-  for (; p; p = p->tail) {
-    p->head->Print(out, m);
-  }
+#ifdef ASSEM_DEBUG_MSG
+	fprintf(stderr, "InstrListPrint\n");
+#endif
+  //const InstrList* p = this;
+  //for (; p != nullptr; p = p->tail) {
+  //  p->head->Print(out, m);
+  //}
+	if(head != nullptr)head->Print(out, m);
+	if(tail != nullptr)tail->Print(out, m);
+	else fprintf(out, "\n");
   fprintf(out, "\n");
 }
 

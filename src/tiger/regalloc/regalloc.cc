@@ -4,7 +4,7 @@ namespace RA {
 
 Result RegAlloc(F::Frame* f, AS::InstrList* il) {
   // TODO: Put your codes here (lab6).
-  return Result();
+  return Result(nullptr, il);
 }
 
 }  // namespace RA

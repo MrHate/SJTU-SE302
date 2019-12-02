@@ -51,8 +51,6 @@ class X64Frame : public Frame {
 	// 3. the number of locals allocated so far,
 	// 4. the label at which the function's machine code is begin.
 
-	// It is ok to alloc infinite regs in lab5
-
  public:
 
 	TEMP::Label *name;

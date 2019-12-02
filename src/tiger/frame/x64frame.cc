@@ -34,7 +34,7 @@ class InRegAccess : public Access {
 };
 
 Access* X64Frame::AllocLocal(bool escape){
-	if(escape){
+	if(true){
 		size += wordSize;
 		return new InFrameAccess(-size);
 	}

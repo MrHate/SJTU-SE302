@@ -45,6 +45,7 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
 
   // lab5&lab6: code generation
   AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList); /* 9 */
+	//assert(iList);
   //  AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map,
   //  Temp_name()));
 

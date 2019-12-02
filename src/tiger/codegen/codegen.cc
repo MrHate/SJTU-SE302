@@ -173,12 +173,14 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::CALL:
 			{
 				T::CallExp *e0 = dynamic_cast<T::CallExp*>(e);
+				assert(e0->fun->kind == T::Exp::NAME);
+				T::NameExp *func_name = dynamic_cast<T::NameExp*>(e0->fun);
 				TEMP::Temp *r = munchExp(e0->fun);
 				int pushs = munchArgs(0, e0->args);
 				emit(new AS::OperInstr(
-							"call `s0",
-							calldefs,
-							new TEMP::TempList(r, nullptr),
+							"call " + func_name->name->Name(),
+							nullptr,
+							nullptr,
 							nullptr));
 				if(pushs){
 					//std::string inst = "addq $"; inst += pushs * 8; isnt += ", %%rsp";
@@ -330,11 +332,9 @@ void munchStm(T::Stm* s){
 namespace CG {
 
 AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
-	AS::InstrList *list;
+	iList = last = new AS::InstrList(nullptr, nullptr);
 	for(T::StmList *sl = stmList; sl; sl = sl->tail) munchStm(sl->head);
-	list = iList; 
-	iList = last = nullptr; 
-  return list;
+  return iList;
 }
 
 }  // namespace CG

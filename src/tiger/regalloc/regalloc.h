@@ -11,6 +11,8 @@ class Result {
  public:
   TEMP::Map* coloring;
   AS::InstrList* il;
+
+	Result(TEMP::Map* coloring, AS::InstrList* il): coloring(coloring), il(il){}
 };
 
 Result RegAlloc(F::Frame* f, AS::InstrList* il);

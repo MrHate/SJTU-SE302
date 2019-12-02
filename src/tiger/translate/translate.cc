@@ -11,7 +11,7 @@
 #include "tiger/semant/types.h"
 #include "tiger/util/util.h"
 
-#define TRASNLATE_DEBUG_MSG
+//#define TRASNLATE_DEBUG_MSG
 
 extern EM::ErrorMsg errormsg;
 
@@ -212,9 +212,22 @@ Level *Outermost() {
 
 F::FragList *AllocFrag(F::Frag *frag){
 	static F::FragList *frags = nullptr;
-	F::FragList **p = &frags;
-	while(*p) p = &((*p)->tail);
-	*p = new F::FragList(frag, nullptr);
+	if(!frags)frags = new F::FragList(frag, nullptr);
+	else {
+		F::FragList *last = frags;
+		int size = 0;
+		while(last->tail){
+			last = last->tail;
+			++ size;
+		}
+		last->tail = new F::FragList(frag, nullptr);
+#ifdef TRASNLATE_DEBUG_MSG
+		errormsg.Error(0, "AllocFrag size: %d", size);
+#endif
+	}
+	//F::FragList **p = &frags;
+	//while(*p) p = &((*p)->tail);
+	//*p = new F::FragList(frag, nullptr);
 	return frags;
 }
 
@@ -222,9 +235,12 @@ F::FragList *TranslateProgram(A::Exp *root) {
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(0, "Translation begins...");
 #endif
-	Level *main_lv = Level::NewLevel(Outermost(), TEMP::NewLabel(), nullptr);
+	Level *main_lv = Level::NewLevel(Outermost(), TEMP::NamedLabel("_tiger_main_"), nullptr);
 	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), main_lv, nullptr).exp->UnNx();
 	F::Frag *frag = new F::ProcFrag(stm, main_lv->frame);
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(0, "Translation ends...");
+#endif
   return AllocFrag(frag);
 }
 
