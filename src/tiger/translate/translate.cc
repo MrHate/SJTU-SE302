@@ -658,16 +658,24 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
 	errormsg.Error(pos, "seqexp");
 #endif
 	A::ExpList *p = seq;
-	T::Stm *seq_stms = nullptr;
+	T::SeqStm *seq_stms = nullptr, *seq_last = nullptr;
 
 	while(p->tail){
 		TR::ExpAndTy p_expty = p->head->Translate(venv,tenv,level,label);
 		//ret_ty = p_expty.ty;
 
-		T::Stm **seq_leaf = &seq_stms;
-		while(*seq_leaf)
-			seq_leaf = &(static_cast<T::SeqStm*>(*seq_leaf)->right);
-		*seq_leaf = new T::SeqStm(p_expty.exp->UnNx(), nullptr);
+		//T::Stm **seq_leaf = &seq_stms;
+		//while(*seq_leaf)
+		//  seq_leaf = &(static_cast<T::SeqStm*>(*seq_leaf)->right);
+		//*seq_leaf = new T::SeqStm(p_expty.exp->UnNx(), nullptr);
+
+		if(seq_stms){
+			seq_last->right = new T::SeqStm(p_expty.exp->UnNx(), nullptr);
+			seq_last = static_cast<T::SeqStm*>(seq_last->right);
+		}
+		else{
+		 seq_last = seq_stms = new T::SeqStm(p_expty.exp->UnNx(), nullptr);	
+		}
 
 		p = p->tail;
 	}
@@ -709,9 +717,11 @@ TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
 		E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(static_cast<A::SimpleVar*>(var)->sym));
 		if(ent == nullptr){
 			//not found
+			assert(0);
 		}
 		if(ent->readonly){
 			errormsg.Error(pos,"loop variable can't be assigned");
+			return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
 		}
 	}
 
@@ -849,7 +859,9 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
 					new T::SeqStm(
 						new T::LabelStm(body_label),
 						body_expty.exp->UnNx()),
-					new T::LabelStm(done_label))));
+					new T::SeqStm(
+						new T::JumpStm(new T::NameExp(test_label), new TEMP::LabelList(test_label, nullptr)),
+						new T::LabelStm(done_label)))));
 
   return TR::ExpAndTy(ret_exp, TY::VoidTy::Instance());
 }
@@ -1024,17 +1036,24 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 
 		// process formals
 		TY::TyList *formals = make_formal_tylist(tenv,func->params);
-		U::BoolList *escapes = nullptr;
+		U::BoolList *escapes = nullptr, *escapes_last = nullptr;
 		A::FieldList *p_formals = func->params;
 		while(p_formals){
-			escapes = new U::BoolList(p_formals->head->escape, escapes);
+			if(escapes){
+				escapes_last->tail = new U::BoolList(p_formals->head->escape, nullptr);
+				escapes_last = escapes_last->tail;
+			}
+			else {
+				escapes_last = escapes = new U::BoolList(p_formals->head->escape, nullptr);
+			}
 			p_formals = p_formals->tail;
 		}
 
 		E::FunEntry *func_ent = new E::FunEntry(
 				// (2)
 				TR::Level::NewLevel(level, TEMP::NamedLabel(func->name->Name()),escapes),
-				label,
+				//label,
+				func->name,
 				formals,
 				rety);
 
