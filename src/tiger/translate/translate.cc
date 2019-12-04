@@ -135,8 +135,8 @@ class ExExp : public Exp {
 				new T::ConstExp(0),
 				nullptr,
 				nullptr);
-		TR::PatchList *trues = new TR::PatchList(&cj_stm->true_label, nullptr),
-			*falses = new TR::PatchList(&cj_stm->false_label, nullptr);
+		TR::PatchList *trues = new TR::PatchList(&(cj_stm->true_label), nullptr),
+			*falses = new TR::PatchList(&(cj_stm->false_label), nullptr);
 		return TR::Cx(trues, falses, cj_stm);
 	}
 };
@@ -152,7 +152,7 @@ class NxExp : public Exp {
   T::Stm *UnNx() const override { return stm; }
 
 	// (p111) unCx应拒绝Tr_nx的Tr_exp
-  Cx UnCx() const override { return Cx(nullptr,nullptr,nullptr); }
+  Cx UnCx() const override { assert(0); return Cx(nullptr,nullptr,nullptr); }
 };
 
 class CxExp : public Exp {
@@ -165,10 +165,8 @@ class CxExp : public Exp {
 
   T::Exp *UnEx() const override {
 		TEMP::Temp *r = TEMP::Temp::NewTemp();
-		TEMP::Label *t = TEMP::NewLabel(),
-			*f = TEMP::NewLabel();
-		TR::do_patch(cx.trues,t);
-		TR::do_patch(cx.falses,f);
+		TEMP::Label *t = TEMP::NewLabel(), *f = TEMP::NewLabel();
+		do_patch(cx.trues,t); do_patch(cx.falses,f);
 		return new T::EseqExp(new T::MoveStm(new T::TempExp(r),new T::ConstExp(1)),
 				new T::EseqExp(cx.stm,
 					new T::EseqExp(new T::LabelStm(f),
@@ -215,15 +213,10 @@ F::FragList *AllocFrag(F::Frag *frag){
 	if(!frags)frags = new F::FragList(frag, nullptr);
 	else {
 		F::FragList *last = frags;
-		int size = 0;
 		while(last->tail){
 			last = last->tail;
-			++ size;
 		}
 		last->tail = new F::FragList(frag, nullptr);
-#ifdef TRASNLATE_DEBUG_MSG
-		errormsg.Error(0, "AllocFrag size: %d", size);
-#endif
 	}
 	//F::FragList **p = &frags;
 	//while(*p) p = &((*p)->tail);
@@ -235,8 +228,9 @@ F::FragList *TranslateProgram(A::Exp *root) {
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(0, "Translation begins...");
 #endif
-	Level *main_lv = Level::NewLevel(Outermost(), TEMP::NamedLabel("_tiger_main_"), nullptr);
-	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), main_lv, nullptr).exp->UnNx();
+	TEMP::Label* main_label = TEMP::NamedLabel("_tiger_main_");
+	Level *main_lv = Level::NewLevel(Outermost(), main_label, nullptr);
+	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), main_lv, main_label).exp->UnNx();
 	F::Frag *frag = new F::ProcFrag(stm, main_lv->frame);
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(0, "Translation ends...");
@@ -257,8 +251,9 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
 	E::VarEntry *ent = static_cast<E::VarEntry*>(venv->Look(sym));
 	if(ent == nullptr){
 		errormsg.Error(pos,"undefined variable %s",sym->Name().c_str());
-		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+		return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
 	}
+	if(ent->kind == E::EnvEntry::FUN) assert(0);
 
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"simplevar[%s] tracing static link", sym->Name().c_str());
@@ -303,18 +298,18 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
 							T::PLUS_OP,
 							var_expty.exp->UnEx(),
 							new T::ConstExp(offset)));
-				return TR::ExpAndTy(new TR::ExExp(e),p->head->ty);
+				return TR::ExpAndTy(new TR::ExExp(e), p->head->ty);
 			}
 			p = p->tail;
 			offset += F::X64Frame::wordSize;
 		}
-		errormsg.Error(pos,"field %s doesn't exist",sym->Name().c_str());
+		errormsg.Error(pos,"field %s doesn't exist", sym->Name().c_str());
 	}
 	else {
 		errormsg.Error(pos,"not a record type");
+		return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
 	}
 
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 }
 
 TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
@@ -411,7 +406,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	}
 
-	T::ExpList *ret_args = nullptr;
+	T::ExpList *ret_args = nullptr, *ret_args_last = ret_args;
 	if(ent->kind == E::EnvEntry::FUN){
 		// check actuals
 		TY::TyList *formals = static_cast<E::FunEntry*>(ent)->formals;
@@ -420,17 +415,20 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 	errormsg.Error(pos,"callexp[%s] translate formals", func->Name().c_str());
 #endif
 		while(p && formals){
-			TY::Ty *a_arg = formals->head;
-
 			// check args' type during semant processing
 			TR::ExpAndTy p_expty = p->head->Translate(venv,tenv,level,label);
-			if(!a_arg->IsSameType(p_expty.ty))
-				errormsg.Error(pos,"para type mismatch");
+			if(!formals->head->IsSameType(p_expty.ty)) errormsg.Error(pos,"para type mismatch");
 
 			// translate args into tree explist
-			//T::Exp *t_arg = a_arg->Translate(venv,tenv,level,label);
 			T::Exp *t_arg = p_expty.exp->UnEx();
-			ret_args = new T::ExpList(t_arg,ret_args);
+			//ret_args = new T::ExpList(t_arg,ret_args);
+			if(ret_args){
+				ret_args_last->tail = new T::ExpList(t_arg, nullptr);
+				ret_args_last = ret_args_last->tail;
+			}
+			else {
+				ret_args_last = ret_args = new T::ExpList(t_arg, nullptr);
+			}
 
 			formals = formals->tail;
 			p = p->tail;
@@ -440,13 +438,13 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		}
 
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"callexp[%s] create static link",func->Name().c_str());
+		errormsg.Error(pos,"callexp[%s] create static link",func->Name().c_str());
 #endif
 		// add static link as the first arg
 		TR::Level *caller_lv = level->parent,
 			*callee_lv = static_cast<E::FunEntry*>(ent)->level;
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"callexp[%s] create static link ..1", func->Name().c_str());
+		errormsg.Error(pos,"callexp[%s] create static link ..1", func->Name().c_str());
 #endif
 		T::Exp *sl = new T::TempExp(F::FP());
 		while(callee_lv && callee_lv != caller_lv){
@@ -454,7 +452,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 			callee_lv = callee_lv->parent;
 		}
 #ifdef TRASNLATE_DEBUG_MSG
-	errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
+		errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
 #endif
 		ret_args = new T::ExpList(sl,ret_args);
 
@@ -510,84 +508,65 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 	TR::PatchList *trues = nullptr,
 		*falses = nullptr;
 	TR::Exp *ret_exp = nullptr;
-	TY::Ty *ret_ty = TY::IntTy::Instance();
+	T::Exp *left_exp = left_expty.exp->UnEx(), *right_exp = right_expty.exp->UnEx();
+
+	if(left_expty.ty->IsSameType(TY::StringTy::Instance())){
+		left_exp = new T::CallExp(
+				new T::NameExp(TEMP::NamedLabel("stringEqual")),
+				new T::ExpList(left_exp, new T::ExpList(right_exp, nullptr)));
+		right_exp = new T::ConstExp(1);
+	}
 
 	switch(oper){
 		case A::PLUS_OP:
+			assert(!left_expty.ty->IsSameType(TY::StringTy::Instance()));
 			ret_exp = new TR::ExExp( new T::BinopExp( T::PLUS_OP,  left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::MINUS_OP:
+			assert(!left_expty.ty->IsSameType(TY::StringTy::Instance()));
 			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::TIMES_OP:
+			assert(!left_expty.ty->IsSameType(TY::StringTy::Instance()));
 			ret_exp = new TR::ExExp( new T::BinopExp( T::MUL_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::DIVIDE_OP:
+			assert(!left_expty.ty->IsSameType(TY::StringTy::Instance()));
 			ret_exp = new TR::ExExp( new T::BinopExp( T::DIV_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 
 		case A::LT_OP:
-			stm = new T::CjumpStm(
-					T::LT_OP,
-					left_expty.exp->UnEx(),
-					right_expty.exp->UnEx(),
-					nullptr,
-					nullptr);
+			stm = new T::CjumpStm( T::LT_OP, left_exp, right_exp, nullptr, nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
 			break;
 		case A::LE_OP:
-			stm = new T::CjumpStm(
-					T::LE_OP,
-					left_expty.exp->UnEx(),
-					right_expty.exp->UnEx(),
-					nullptr,
-					nullptr);
+			stm = new T::CjumpStm( T::LE_OP, left_exp, right_exp, nullptr, nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
 			break;
 		case A::GT_OP:
-			stm = new T::CjumpStm(
-					T::GT_OP,
-					left_expty.exp->UnEx(),
-					right_expty.exp->UnEx(),
-					nullptr,
-					nullptr);
+			stm = new T::CjumpStm( T::GT_OP, left_exp, right_exp, nullptr, nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
 			break;
 		case A::GE_OP:
-			stm = new T::CjumpStm(
-					T::GE_OP,
-					left_expty.exp->UnEx(),
-					right_expty.exp->UnEx(),
-					nullptr,
-					nullptr);
+			stm = new T::CjumpStm( T::GE_OP, left_exp, right_exp, nullptr, nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
 			break;
 		case A::EQ_OP:
-			stm = new T::CjumpStm(
-					T::EQ_OP,
-					left_expty.exp->UnEx(),
-					right_expty.exp->UnEx(),
-					nullptr,
-					nullptr);
+			stm = new T::CjumpStm( T::EQ_OP, left_exp, right_exp, nullptr, nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
 			break;
 		case A::NEQ_OP:
-			stm = new T::CjumpStm(
-					T::NE_OP,
-					left_expty.exp->UnEx(),
-					right_expty.exp->UnEx(),
-					nullptr,
-					nullptr);
+			stm = new T::CjumpStm( T::NE_OP, left_exp, right_exp, nullptr, nullptr);
 			trues = new TR::PatchList( &stm->true_label, nullptr);
 			falses = new TR::PatchList( &stm->false_label, nullptr);
 			ret_exp = new TR::CxExp(trues,falses,stm);
@@ -597,7 +576,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	}
 
-	return TR::ExpAndTy(ret_exp,ret_ty);
+	return TR::ExpAndTy(ret_exp, TY::IntTy::Instance());
 
 }
 
@@ -613,27 +592,36 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
 		errormsg.Error(pos,"undefined type %s",typ->Name().c_str());
 		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	}
+	if(ty->ActualTy()->kind !=  TY::Ty::RECORD){
+		errormsg.Error(pos,"%s not a record type",typ->Name().c_str());
+		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+	}
 
+	TY::RecordTy *rec_ty = static_cast<TY::RecordTy*>(ty->ActualTy());
+	TY::FieldList *rec_ty_fields = rec_ty->fields;
+
+	// check args type-matching and generate expressions of record field 
 	A::EFieldList *fl = fields;
-	TY::FieldList *tyfl = nullptr;
-	int record_size = 0;
 	std::vector<TR::Exp*> record_exps;
-	while(fl){
-		A::EField *p = fl->head;
-		fl = fl->tail;
-		TR::ExpAndTy p_expty = p->exp->Translate(venv,tenv,level,label);
-		record_exps.push_back(p_expty.exp);
-		tyfl = new TY::FieldList(
-				new TY::Field(
-					p->name,
-					p_expty.ty),
-				tyfl);
+	while(fl && rec_ty_fields){
+		TR::ExpAndTy p_expty = fl->head->exp->Translate(venv,tenv,level,label);
+		if(!p_expty.ty->IsSameType(rec_ty_fields->head->ty)){
+			errormsg.Error(pos,"arg types mismatch for record type %s", typ->Name().c_str());
+			return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+		}
 
-		record_size += F::X64Frame::wordSize;
+		record_exps.push_back(p_expty.exp);
+
+		fl = fl->tail;
+		rec_ty_fields = rec_ty_fields->tail;
+	}
+	if(rec_ty_fields){
+		errormsg.Error(pos,"too few args for record type %s", typ->Name().c_str());
+		return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
 	}
 
 	// alloc memory needed for record body by calling runtime function
-	T::ExpList *runtime_args = new T::ExpList(new T::ConstExp(record_size),nullptr);
+	T::ExpList *runtime_args = new T::ExpList(new T::ConstExp(record_exps.size() * F::X64Frame::wordSize), nullptr);
 	TEMP::Temp *record_t = TEMP::Temp::NewTemp();
 	T::Stm *alloc_stm = new T::MoveStm(
 			new T::TempExp(record_t),

@@ -28,6 +28,8 @@ void emit(AS::Instr* inst){
 }
 
 int munchArgs(T::ExpList* args, bool reg){
+	//fprintf(stderr, "munchArgs...\n");
+	reg = false;
 	int pushs = 0;
 	if(reg && args){
 		TEMP::TempList *p_reg = argregs;
@@ -41,6 +43,7 @@ int munchArgs(T::ExpList* args, bool reg){
 		}
 	}else if(args){
 		pushs = munchArgs(args->tail, false) + 1;
+		//fprintf(stderr, "push args: %d\n", pushs);
 		emit(new AS::OperInstr(
 					"pushq `s0",
 					nullptr,
@@ -51,11 +54,12 @@ int munchArgs(T::ExpList* args, bool reg){
 }
 
 TEMP::Temp* munchExp(T::Exp* e){
+	TEMP::Temp *r = F::RAX();
 	switch(e->kind){
 		case T::Exp::MEM:
 			{
 				T::MemExp *e0 = dynamic_cast<T::MemExp*>(e);
-				TEMP::Temp *r = TEMP::Temp::NewTemp();
+				//TEMP::Temp *r = TEMP::Temp::NewTemp();
 				switch(e0->exp->kind){
 					case T::Exp::BINOP:
 						{
@@ -113,7 +117,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::BINOP:
 			{
 				T::BinopExp *e0 = dynamic_cast<T::BinopExp*>(e);
-				TEMP::Temp *r = TEMP::Temp::NewTemp();
+				//TEMP::Temp *r = TEMP::Temp::NewTemp();
 				std::string oper_str = "";
 				switch(e0->op){
 					case T::PLUS_OP:
@@ -148,7 +152,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::CONST:
 			{
 				T::ConstExp *e0 = dynamic_cast<T::ConstExp*>(e);
-				TEMP::Temp *r = TEMP::Temp::NewTemp();
+				//TEMP::Temp *r = TEMP::Temp::NewTemp();
 				emit(new AS::MoveInstr(
 							// movq $imm, D
 							"movq $" + std::to_string(e0->consti) + ", `d0",
@@ -159,7 +163,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::NAME:
 			{
 				T::NameExp *e0 = dynamic_cast<T::NameExp*>(e);
-				TEMP::Temp *r = TEMP::Temp::NewTemp();
+				//TEMP::Temp *r = TEMP::Temp::NewTemp();
 				assert(e0->name);
 				emit(new AS::MoveInstr(
 							// movq $imm, D
@@ -176,7 +180,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 				assert(e0->fun->kind == T::Exp::NAME);
 				T::NameExp *func_name = dynamic_cast<T::NameExp*>(e0->fun);
 				//TEMP::Temp *r = munchExp(e0->fun);
-				int pushs = munchArgs(0, e0->args);
+				int pushs = munchArgs(e0->args, true);
 				emit(new AS::OperInstr(
 							"call " + func_name->name->Name(),
 							nullptr,

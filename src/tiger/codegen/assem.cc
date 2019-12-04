@@ -29,7 +29,9 @@ namespace AS {
  */
 static std::string format(std::string assem, TEMP::TempList* dst,
                           TEMP::TempList* src, Targets* jumps, TEMP::Map* m) {
+	// TODO: comment the return below
 	return assem;
+
   std::string result;
   for (int i = 0; i < assem.size(); i++) {
     char ch = assem.at(i);

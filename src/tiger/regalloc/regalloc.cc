@@ -4,7 +4,9 @@ namespace RA {
 
 Result RegAlloc(F::Frame* f, AS::InstrList* il) {
   // TODO: Put your codes here (lab6).
-  return Result(nullptr, il);
+
+  return Result(f->RegAlloc(il), il);
+	//Result(TEMP::Map* coloring, AS::InstrList* il): coloring(coloring), il(il){}
 }
 
 }  // namespace RA

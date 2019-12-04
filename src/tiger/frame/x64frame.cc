@@ -33,6 +33,8 @@ class InRegAccess : public Access {
 	}
 };
 
+// X64Frame Implementation
+
 Access* X64Frame::AllocLocal(bool escape){
 	if(true){
 		size += wordSize;
@@ -50,6 +52,15 @@ T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
 	return new AS::Proc("", il, "");
 }
+
+TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
+	TEMP::Map *regMap = TEMP::Map::Empty();
+	regMap->Enter(FP(), new std::string("%rsp"));
+	regMap->Enter(RAX(), new std::string("%rax"));
+	return regMap;
+}
+
+// Global Registers
 
 TEMP::Temp* FP() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
 TEMP::Temp* RV() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }

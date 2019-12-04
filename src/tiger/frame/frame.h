@@ -42,6 +42,7 @@ class Frame {
 
 	virtual T::Stm* ProcEntryExit1(T::Stm* stm) = 0;
 	virtual AS::Proc* ProcEntryExit3(AS::InstrList* il) = 0;
+	virtual TEMP::Map* RegAlloc(AS::InstrList* il) = 0;
 };
 
 class X64Frame : public Frame {
@@ -83,6 +84,7 @@ class X64Frame : public Frame {
 
 	T::Stm* ProcEntryExit1(T::Stm* stm);
 	AS::Proc* ProcEntryExit3(AS::InstrList* il);
+	TEMP::Map* RegAlloc(AS::InstrList* il);
 };
 
 /*
