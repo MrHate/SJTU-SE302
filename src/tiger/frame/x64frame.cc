@@ -44,7 +44,7 @@ Access* X64Frame::AllocLocal(bool escape){
 }
 
 T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
-	return stm;
+	return new T::SeqStm(new T::LabelStm(name), stm);
 }
 
 AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){

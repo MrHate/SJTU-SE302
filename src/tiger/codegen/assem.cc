@@ -1,6 +1,6 @@
 #include "tiger/codegen/assem.h"
 
-#define ASSEM_DEBUG_MSG
+//#define ASSEM_DEBUG_MSG
 
 namespace {
 
@@ -29,6 +29,7 @@ namespace AS {
  */
 static std::string format(std::string assem, TEMP::TempList* dst,
                           TEMP::TempList* src, Targets* jumps, TEMP::Map* m) {
+	return assem;
   std::string result;
   for (int i = 0; i < assem.size(); i++) {
     char ch = assem.at(i);
@@ -115,7 +116,7 @@ void InstrList::Print(FILE* out, TEMP::Map* m) const {
 	if(head != nullptr)head->Print(out, m);
 	if(tail != nullptr)tail->Print(out, m);
 	else fprintf(out, "\n");
-  fprintf(out, "\n");
+  //fprintf(out, "\n");
 }
 
 /* put list b at the end of list a */

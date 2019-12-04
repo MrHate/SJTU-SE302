@@ -175,7 +175,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 				T::CallExp *e0 = dynamic_cast<T::CallExp*>(e);
 				assert(e0->fun->kind == T::Exp::NAME);
 				T::NameExp *func_name = dynamic_cast<T::NameExp*>(e0->fun);
-				TEMP::Temp *r = munchExp(e0->fun);
+				//TEMP::Temp *r = munchExp(e0->fun);
 				int pushs = munchArgs(0, e0->args);
 				emit(new AS::OperInstr(
 							"call " + func_name->name->Name(),
@@ -264,8 +264,9 @@ void munchStm(T::Stm* s){
 		case T::Stm::LABEL:
 			{
 				T::LabelStm *e0 = dynamic_cast<T::LabelStm*>(s);
+				//fprintf(stderr, "[label]%s\n",TEMP::LabelString(e0->label).c_str());
 				emit(new AS::LabelInstr(
-							TEMP::LabelString(e0->label) + ":\n",
+							TEMP::LabelString(e0->label),
 							e0->label));
 			}
 			break;
