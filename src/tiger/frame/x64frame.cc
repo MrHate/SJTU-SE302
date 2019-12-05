@@ -16,9 +16,7 @@ class InFrameAccess : public Access {
 				new T::BinopExp(
 					T::PLUS_OP,
 					framePtr,
-					new T::ConstExp(offset)
-					)
-				);
+					new T::ConstExp(offset)));
 	}
 };
 
@@ -59,20 +57,36 @@ T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
 }
 
 AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
-	return new AS::Proc("", il, "");
+	// (1) 特定汇编语言需要的一个声明函数开始的伪指令
+	// not needed in x86 here
+	
+	// (3) 调整栈指针的一条命令
+	std::string frame_size = ".set " + TEMP::LabelString(name) + "_framesize,",
+		prolog = frame_size + std::to_string(size) + "\nsubq $" + std::to_string(size) + ",%rsp\n";
+
+	// (9) 恢复栈指针的指令
+	std::string epilog = "addq $" + std::to_string(size) + ",%rsp\n";
+	epilog += "ret\n\n";
+
+	// (11) 汇编语言需要的声明一个函数结束的伪指令
+	// not needed in x86 here
+
+	return new AS::Proc(prolog, il, epilog);
 }
 
 TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
 	TEMP::Map *regMap = TEMP::Map::Empty();
 	regMap->Enter(FP(), new std::string("%rsp"));
 	regMap->Enter(RAX(), new std::string("%rax"));
+	regMap->Enter(RV(), new std::string("%rdi"));
 	return regMap;
 }
 
 // Global Registers
 
 TEMP::Temp* FP() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* RV() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* RV() { return RAX();}
+
 TEMP::Temp* RSP(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
 TEMP::Temp* RAX(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
 TEMP::Temp* RDI(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
@@ -83,5 +97,9 @@ TEMP::Temp* R8() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::New
 TEMP::Temp* R9() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
 TEMP::Temp* R10(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
 TEMP::Temp* R11(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* R12(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* R13(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* R14(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* R15(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
 
 }  // namespace F

@@ -145,6 +145,10 @@ TEMP::Temp* R8() ;
 TEMP::Temp* R9() ;
 TEMP::Temp* R10() ;
 TEMP::Temp* R11() ;
+TEMP::Temp* R12() ;
+TEMP::Temp* R13() ;
+TEMP::Temp* R14() ;
+TEMP::Temp* R15() ;
 
 //AS::Proc *F_procEntryExit3(Frame *frame, AS::InstrList *il){return nullptr;}
 

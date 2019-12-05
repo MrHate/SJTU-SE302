@@ -32,6 +32,7 @@ int munchArgs(T::ExpList* args, bool reg){
 	reg = false;
 	int pushs = 0;
 	if(reg && args){
+		fprintf(stderr, "munchArgs allocate regs\n");
 		TEMP::TempList *p_reg = argregs;
 		for(int i=0;i<6 && args;i++){
 			emit(new AS::MoveInstr(
@@ -54,12 +55,11 @@ int munchArgs(T::ExpList* args, bool reg){
 }
 
 TEMP::Temp* munchExp(T::Exp* e){
-	TEMP::Temp *r = F::RAX();
 	switch(e->kind){
 		case T::Exp::MEM:
 			{
 				T::MemExp *e0 = dynamic_cast<T::MemExp*>(e);
-				//TEMP::Temp *r = TEMP::Temp::NewTemp();
+				TEMP::Temp *r = TEMP::Temp::NewTemp();
 				switch(e0->exp->kind){
 					case T::Exp::BINOP:
 						{
@@ -117,7 +117,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::BINOP:
 			{
 				T::BinopExp *e0 = dynamic_cast<T::BinopExp*>(e);
-				//TEMP::Temp *r = TEMP::Temp::NewTemp();
+				TEMP::Temp *r = TEMP::Temp::NewTemp();
 				std::string oper_str = "";
 				switch(e0->op){
 					case T::PLUS_OP:
@@ -152,7 +152,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::CONST:
 			{
 				T::ConstExp *e0 = dynamic_cast<T::ConstExp*>(e);
-				//TEMP::Temp *r = TEMP::Temp::NewTemp();
+				TEMP::Temp *r = TEMP::Temp::NewTemp();
 				emit(new AS::MoveInstr(
 							// movq $imm, D
 							"movq $" + std::to_string(e0->consti) + ", `d0",
@@ -163,7 +163,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 		case T::Exp::NAME:
 			{
 				T::NameExp *e0 = dynamic_cast<T::NameExp*>(e);
-				//TEMP::Temp *r = TEMP::Temp::NewTemp();
+				TEMP::Temp *r = TEMP::Temp::NewTemp();
 				assert(e0->name);
 				emit(new AS::MoveInstr(
 							// movq $imm, D
@@ -179,7 +179,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 				T::CallExp *e0 = dynamic_cast<T::CallExp*>(e);
 				assert(e0->fun->kind == T::Exp::NAME);
 				T::NameExp *func_name = dynamic_cast<T::NameExp*>(e0->fun);
-				//TEMP::Temp *r = munchExp(e0->fun);
+				TEMP::Temp *r = munchExp(e0->fun);
 				int pushs = munchArgs(e0->args, true);
 				emit(new AS::OperInstr(
 							"call " + func_name->name->Name(),
@@ -242,7 +242,7 @@ void munchStm(T::Stm* s){
 					// case MOVE( MEM( CONST() ), e2 )
 					else if(e1->exp->kind == T::Exp::CONST){
 						emit(new AS::MoveInstr(
-									"moveq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1->exp)->consti) + "(`r0)",
+									"movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1->exp)->consti) + "(`r0)",
 									nullptr,
 									new TEMP::TempList(munchExp(e0->src), nullptr)));
 					}
