@@ -40,7 +40,7 @@ class Frame {
 
 	virtual TEMP::Label* Name() const = 0;
 
-	virtual T::Stm* ProcEntryExit1(T::Stm* stm) = 0;
+	virtual T::Stm* ProcEntryExit1(T::Exp* exp) = 0;
 	virtual AS::Proc* ProcEntryExit3(AS::InstrList* il) = 0;
 	virtual TEMP::Map* RegAlloc(AS::InstrList* il) = 0;
 };
@@ -60,30 +60,35 @@ class X64Frame : public Frame {
 
 	static const int wordSize = 4;
 	
-	X64Frame(TEMP::Label *name, U::BoolList *formals): name(name), size(0){
+	X64Frame(TEMP::Label *name, U::BoolList *formals): name(name), formals(nullptr), size(0){
 		// newFrame函数必须做两件事
 		// 1. 在函数内如何看待参数(寄存器还是栈帧存储单元中)
 		// 2. 实现"视角位移"的指令
 
+		AccessList *last = nullptr;
 		while(formals){
 			Access* access = AllocLocal(formals->head);
-			this->formals = new AccessList(access, this->formals);
+			if(this->formals){
+				last->tail = new AccessList(access, nullptr);
+				last = last->tail;
+			}
+			else{
+				last = this->formals = new AccessList(access, nullptr);
+			}
+			//this->formals = new AccessList(access, this->formals);
+
 			formals = formals->tail;
 		}
 	}
 
 	Access* AllocLocal(bool escape);
 
-	AccessList* Formals() const {
-		return formals;
-	}
+	AccessList* Formals() const { return formals; }
+	TEMP::Label* Name() const { return name; }
 
-	TEMP::Label* Name() const {
-		return name;
-	}
-
-	T::Stm* ProcEntryExit1(T::Stm* stm);
+	T::Stm* ProcEntryExit1(T::Exp* exp);
 	AS::Proc* ProcEntryExit3(AS::InstrList* il);
+
 	TEMP::Map* RegAlloc(AS::InstrList* il);
 };
 

@@ -45,9 +45,17 @@ Access* X64Frame::AllocLocal(bool escape){
 	}
 }
 
-T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
-	// TODO: move return value to F::RV if func returns and maybe eseqexp with F::RV
-	return new T::SeqStm(new T::LabelStm(name), stm);
+T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
+	 // (4) 将逃逸参数包括静态链保存至栈帧的指令，以及将非逃逸参数传送到新的临时寄存器的指令。
+	 // The stage above is moved to codegen when generating instructions for T::CallExp.
+
+	 // (5) 保存在此函数内用到的被调用者保护的寄存器，包括返回地址寄存器的存储指令。
+	 // This stage may be delayed to lab6.
+
+	 // (7) 将返回值传送至专用于返回结果的寄存器的指令。
+	T::Stm *with_rv = new T::MoveStm(new T::TempExp(F::RV()), exp);
+
+	return new T::SeqStm(new T::LabelStm(name), with_rv);
 }
 
 AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){

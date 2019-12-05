@@ -189,7 +189,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 				if(pushs){
 					//std::string inst = "addq $"; inst += pushs * 8; isnt += ", %%rsp";
 					emit(new AS::OperInstr(
-								"addq $" + std::to_string(pushs * 8) + ", %%rsp",
+								"addq $" + std::to_string(pushs * 8) + ", %rsp",
 								nullptr,
 								nullptr,
 								nullptr));

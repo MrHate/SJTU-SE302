@@ -1082,11 +1082,8 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 		}
 
 
-		// (6) Function body
 		TR::ExpAndTy body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
-		// (4) (5) (7) (8)
-		T::Stm *func_body = func_ent->level->frame->ProcEntryExit1(body_expty.exp->UnNx());
-		// (1) (3) (9) (11) locate in procEntryExit3
+		T::Stm *func_body = func_ent->level->frame->ProcEntryExit1(body_expty.exp->UnEx());
 		TR::AllocFrag(new F::ProcFrag(func_body, func_ent->level->frame));
 
 		venv->EndScope();
