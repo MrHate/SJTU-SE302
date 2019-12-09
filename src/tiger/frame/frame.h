@@ -41,6 +41,7 @@ class Frame {
 	virtual TEMP::Label* Name() const = 0;
 
 	virtual T::Stm* ProcEntryExit1(T::Exp* exp) = 0;
+	virtual AS::InstrList* ProcEntryExit2(AS::InstrList* body) = 0;
 	virtual AS::Proc* ProcEntryExit3(AS::InstrList* il) = 0;
 	virtual TEMP::Map* RegAlloc(AS::InstrList* il) = 0;
 };
@@ -51,6 +52,8 @@ class X64Frame : public Frame {
 	// 2. instructions required to implement the "view shift",
 	// 3. the number of locals allocated so far,
 	// 4. the label at which the function's machine code is begin.
+ private:
+	 static TEMP::TempList *returnSink;
 
  public:
 
@@ -58,7 +61,7 @@ class X64Frame : public Frame {
 	AccessList *formals;
 	int size;
 
-	static const int wordSize = 4;
+	static const int wordSize = 8;
 	
 	X64Frame(TEMP::Label *name, U::BoolList *formals): name(name), formals(nullptr), size(0){
 		// newFrame函数必须做两件事
@@ -87,6 +90,7 @@ class X64Frame : public Frame {
 	TEMP::Label* Name() const { return name; }
 
 	T::Stm* ProcEntryExit1(T::Exp* exp);
+	AS::InstrList* ProcEntryExit2(AS::InstrList* body);
 	AS::Proc* ProcEntryExit3(AS::InstrList* il);
 
 	TEMP::Map* RegAlloc(AS::InstrList* il);

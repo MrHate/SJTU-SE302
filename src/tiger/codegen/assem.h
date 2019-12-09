@@ -25,6 +25,8 @@ class Instr {
   Instr(Kind kind) : kind(kind) {}
 
   virtual void Print(FILE* out, TEMP::Map* m) const = 0;
+	virtual TEMP::TempList* Src() const = 0;
+	virtual TEMP::TempList* Dst() const = 0;
 };
 
 class OperInstr : public Instr {
@@ -38,6 +40,8 @@ class OperInstr : public Instr {
       : Instr(OPER), assem(assem), dst(dst), src(src), jumps(jumps) {}
 
   void Print(FILE* out, TEMP::Map* m) const override;
+	TEMP::TempList* Src() const {return src;}
+	TEMP::TempList* Dst() const {return dst;}
 };
 
 class LabelInstr : public Instr {
@@ -49,6 +53,8 @@ class LabelInstr : public Instr {
       : Instr(LABEL), assem(assem), label(label) {}
 
   void Print(FILE* out, TEMP::Map* m) const override;
+	TEMP::TempList* Src() const {return nullptr;}
+	TEMP::TempList* Dst() const {return nullptr;}
 };
 
 class MoveInstr : public Instr {
@@ -60,6 +66,8 @@ class MoveInstr : public Instr {
       : Instr(MOVE), assem(assem), dst(dst), src(src) {}
 
   void Print(FILE* out, TEMP::Map* m) const override;
+	TEMP::TempList* Src() const {return src;}
+	TEMP::TempList* Dst() const {return dst;}
 };
 
 class InstrList {

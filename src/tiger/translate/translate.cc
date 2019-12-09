@@ -228,7 +228,7 @@ F::FragList *TranslateProgram(A::Exp *root) {
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(0, "Translation begins...");
 #endif
-	TEMP::Label* main_label = TEMP::NamedLabel("_tigermain");
+	TEMP::Label* main_label = TEMP::NamedLabel("tigermain");
 	Level *main_lv = Level::NewLevel(Outermost(), main_label, nullptr);
 	T::Stm *stm = root->Translate(E::BaseVEnv(), E::BaseTEnv(), main_lv, main_label).exp->UnNx();
 	F::Frag *frag = new F::ProcFrag(stm, main_lv->frame);

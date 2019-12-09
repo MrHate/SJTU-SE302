@@ -43,6 +43,8 @@ Access* X64Frame::AllocLocal(bool escape){
 	}
 }
 
+TEMP::TempList *X64Frame::returnSink = nullptr;
+
 T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
 	 // (4) 将逃逸参数包括静态链保存至栈帧的指令，以及将非逃逸参数传送到新的临时寄存器的指令。
 	 // The stage above is moved to codegen when generating instructions for T::CallExp.
@@ -54,6 +56,13 @@ T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
 	T::Stm *with_rv = new T::MoveStm(new T::TempExp(F::RV()), exp);
 
 	return new T::SeqStm(new T::LabelStm(name), with_rv);
+}
+
+AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
+	if (returnSink == nullptr){
+		returnSink = new TEMP::TempList(RSP(), new TEMP::TempList(RAX(), nullptr));
+	}
+	return AS::InstrList::Splice(body, new AS::InstrList(new AS::OperInstr("",nullptr,returnSink,nullptr), nullptr));
 }
 
 AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
@@ -79,6 +88,7 @@ TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
 	regMap->Enter(FP(), new std::string("%rsp"));
 	regMap->Enter(RAX(), new std::string("%rax"));
 	regMap->Enter(RV(), new std::string("%rdi"));
+	regMap->Enter(R12(), new std::string("%r12"));
 	return regMap;
 }
 
