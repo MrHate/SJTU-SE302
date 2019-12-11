@@ -441,15 +441,18 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 		errormsg.Error(pos,"callexp[%s] create static link",func->Name().c_str());
 #endif
 		// add static link as the first arg
-		TR::Level *caller_lv = level->parent,
+		TR::Level *caller_lv = level,
 			*callee_lv = static_cast<E::FunEntry*>(ent)->level;
+
 #ifdef TRASNLATE_DEBUG_MSG
 		errormsg.Error(pos,"callexp[%s] create static link ..1", func->Name().c_str());
 #endif
 		T::Exp *sl = new T::TempExp(F::FP());
-		while(callee_lv && callee_lv != caller_lv){
-			sl = callee_lv->frame->Formals()->head->ToExp(sl);
-			callee_lv = callee_lv->parent;
+		if(callee_lv->parent != caller_lv){
+			while(caller_lv && caller_lv->parent != callee_lv->parent){
+				sl = caller_lv->frame->Formals()->head->ToExp(sl);
+				caller_lv = caller_lv->parent;
+			}
 		}
 #ifdef TRASNLATE_DEBUG_MSG
 		errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
@@ -1086,7 +1089,7 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 
 
 		TR::ExpAndTy body_expty = func->body->Translate(venv, tenv, func_ent->level, func_ent->label);
-		T::Stm *func_body = func_ent->level->frame->ProcEntryExit1(body_expty.exp->UnNx());
+		T::Stm *func_body = func_ent->level->frame->ProcEntryExit1(new T::MoveStm(new T::TempExp(F::RV()), body_expty.exp->UnEx()));
 		TR::AllocFrag(new F::ProcFrag(func_body, func_ent->level->frame));
 
 		venv->EndScope();

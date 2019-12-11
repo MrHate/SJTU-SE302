@@ -12,11 +12,13 @@ class InFrameAccess : public Access {
   InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
 
 	T::Exp* ToExp(T::Exp* framePtr) const {
+		int off = offset;
+		if(off < -8) off += 8;
 		return new T::MemExp(
 				new T::BinopExp(
 					T::PLUS_OP,
 					framePtr,
-					new T::ConstExp(offset)));
+					new T::ConstExp(off)));
 	}
 };
 
@@ -137,6 +139,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 					assert(0);
 			}
 			formals = formals->tail;
+			++ parameterPos;
 		}
 }
 
