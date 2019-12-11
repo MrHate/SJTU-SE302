@@ -55,7 +55,7 @@ T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
 	 // (7) 将返回值传送至专用于返回结果的寄存器的指令。
 	T::Stm *with_rv = new T::MoveStm(new T::TempExp(F::RV()), exp);
 
-	return new T::SeqStm(new T::LabelStm(name), with_rv);
+	return with_rv;
 }
 
 AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
@@ -71,7 +71,9 @@ AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
 	
 	// (3) 调整栈指针的一条命令
 	std::string frame_size = ".set " + TEMP::LabelString(name) + "_framesize,",
-		prolog = frame_size + std::to_string(size) + "\nsubq $" + std::to_string(size) + ",%rsp\n";
+		prolog = frame_size + std::to_string(size) + "\n";
+	prolog += TEMP::LabelString(name) + ":\n";
+	prolog += "subq $" + std::to_string(size) + ",%rsp\n";
 
 	// (9) 恢复栈指针的指令
 	std::string epilog = "addq $" + std::to_string(size) + ",%rsp\n";
@@ -88,7 +90,15 @@ TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
 	regMap->Enter(FP(), new std::string("%rsp"));
 	regMap->Enter(RAX(), new std::string("%rax"));
 	regMap->Enter(RV(), new std::string("%rdi"));
-	regMap->Enter(R12(), new std::string("%r12"));
+	regMap->Enter(R12(), new std::string("%r10"));
+	regMap->Enter(R13(), new std::string("%r11"));
+
+	regMap->Enter(RDI(), new std::string("%rdi"));
+	regMap->Enter(RSI(), new std::string("%rsi"));
+	regMap->Enter(RCX(), new std::string("%rcx"));
+	regMap->Enter(RDX(), new std::string("%rdx"));
+	regMap->Enter(R8(),  new std::string("%r8"));
+	regMap->Enter(R9(),  new std::string("%r9"));
 	return regMap;
 }
 

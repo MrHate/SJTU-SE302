@@ -454,7 +454,10 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 #ifdef TRASNLATE_DEBUG_MSG
 		errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
 #endif
-		ret_args = new T::ExpList(sl,ret_args);
+		// call runtime function without static link as the first parameter
+		if(callee_lv->parent != nullptr){
+			ret_args = new T::ExpList(sl,ret_args);
+		}
 
 		T::Exp *ret_exp = new T::CallExp(
 				new T::NameExp(func),

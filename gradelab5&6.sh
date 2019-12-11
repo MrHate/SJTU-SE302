@@ -108,5 +108,5 @@ for tcase in $(ls $TESTCASEDIR/); do
     fi
 done
 
-rm -f testcases refs _tmp.txt .tmp.txt
+rm -f refs _tmp.txt .tmp.txt
 echo -e "${GREEN_COLOR}${ite}Your score: ${score}${RES}"
