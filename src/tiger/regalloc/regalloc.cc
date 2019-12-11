@@ -11,10 +11,12 @@ namespace {
 		return nullptr;
 	}
 
-	void ReplaceTemp(TEMP::TempList *tl, TEMP::Temp *target, TEMP::Temp *t){
+	TEMP::Temp* ReplaceTemp(TEMP::TempList *tl, TEMP::Temp *target, TEMP::Temp *t){
 		TEMP::TempList *p = HasTemp(tl,target);
 		assert(p);
+		if(target == F::RAX() || target == F::RDI() || target == F::RSI() || target == F::RCX() || target == F::RDX() || target == F::R8() || target == F::R9())return target;
 		p->head = t;
+		return t;
 	}
 
 	std::string Temp2imm(F::Frame *f, TEMP::Temp *t){
@@ -41,32 +43,56 @@ namespace {
 					if(instr->Dst()->tail){assert(0);}
 					// d0 s0
 					else if(instr->Src()){
-						TEMP::Temp *d0 = instr->Dst()->head, *s0 = instr->Src()->head;
-						ReplaceTemp(instr->Dst(), d0, F::R12());
-						ReplaceTemp(instr->Src(), s0, F::R13());
-						AS::Instr *store = new AS::MoveInstr(
-								"movq `s0," + Temp2imm(f, d0) + "(%rsp)",
-								nullptr,
-								new TEMP::TempList(F::R12(), nullptr));
-						AS::Instr *load = new AS::MoveInstr(
-								"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
-								new TEMP::TempList(F::R13(), nullptr),
-								nullptr);
+						TEMP::Temp *d0 = instr->Dst()->head, *s0 = instr->Src()->head,
+							*nd0 = ReplaceTemp(instr->Dst(), d0, F::R12()),
+							*ns0 = ReplaceTemp(instr->Src(), s0, F::R13());
 
-						instrs->head = load;
-						instrs->tail = new AS::InstrList(store, instrs->tail);
-						instrs->tail = new AS::InstrList(instr, instrs->tail);
+						if(d0 != nd0 && s0 != ns0){
+							AS::Instr *store = new AS::MoveInstr(
+									"movq `s0," + Temp2imm(f, d0) + "(%rsp)",
+									nullptr,
+									new TEMP::TempList(nd0, nullptr));
+							AS::Instr *load = new AS::MoveInstr(
+									"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
+									new TEMP::TempList(ns0, nullptr),
+									nullptr);
 
-						instrs = instrs->tail->tail;
+							instrs->head = load;
+							instrs->tail = new AS::InstrList(store, instrs->tail);
+							instrs->tail = new AS::InstrList(instr, instrs->tail);
+
+							instrs = instrs->tail->tail;
+						}
+						else if(d0 == nd0 && s0 != ns0){
+							AS::Instr *load = new AS::MoveInstr(
+									"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
+									new TEMP::TempList(ns0, nullptr),
+									nullptr);
+
+							instrs->head = load;
+							instrs->tail = new AS::InstrList(instr, instrs->tail);
+
+							instrs = instrs->tail;
+						}
+						else if(d0 != nd0 && s0 == ns0){
+							AS::Instr *store = new AS::MoveInstr(
+									"movq `s0," + Temp2imm(f, d0) + "(%rsp)",
+									nullptr,
+									new TEMP::TempList(nd0, nullptr));
+
+							instrs->tail = new AS::InstrList(store, instrs->tail);
+
+							instrs = instrs->tail;
+						}
 					}
 					// d0
 					else{
 						TEMP::Temp *d0 = instr->Dst()->head;
-						ReplaceTemp(instr->Dst(), d0, F::R12());
+						TEMP::Temp *nd0 = ReplaceTemp(instr->Dst(), d0, F::R12());
 						AS::Instr *store = new AS::MoveInstr(
 								"movq `s0," + Temp2imm(f, d0) + "(%rsp)",
 								nullptr,
-								new TEMP::TempList(F::R12(), nullptr));
+								new TEMP::TempList(nd0, nullptr));
 						instrs->tail = new AS::InstrList(store, instrs->tail);
 
 						instrs = instrs->tail;
@@ -75,30 +101,55 @@ namespace {
 				else if(instr->Src()){
 					// s0 s1
 					if(instr->Src()->tail){
-						TEMP::Temp *s0 = instr->Src()->head, *s1 = instr->Src()->tail->head;
-						ReplaceTemp(instr->Src(), s0, F::R12());
-						ReplaceTemp(instr->Src(), s1, F::R13());
-						AS::Instr *load0 = new AS::MoveInstr(
-								"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
-								new TEMP::TempList(F::R12(), nullptr),
-								nullptr);
-						AS::Instr *load1 = new AS::MoveInstr(
-								"movq " + Temp2imm(f, s1) + "(%rsp),`d0",
-								new TEMP::TempList(F::R13(), nullptr),
-								nullptr);
+						TEMP::Temp *s0 = instr->Src()->head, *s1 = instr->Src()->tail->head,
+							*ns0 = ReplaceTemp(instr->Src(), s0, F::R12()),
+							*ns1 = ReplaceTemp(instr->Src(), s1, F::R13());
 
-						instrs->head = load0;
-						instrs->tail = new AS::InstrList(load1, new AS::InstrList(instr, instrs->tail));
+						if(s0 != ns0 && s1 != ns1){
+							AS::Instr *load0 = new AS::MoveInstr(
+									"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
+									new TEMP::TempList(ns0, nullptr),
+									nullptr);
+							AS::Instr *load1 = new AS::MoveInstr(
+									"movq " + Temp2imm(f, s1) + "(%rsp),`d0",
+									new TEMP::TempList(ns1, nullptr),
+									nullptr);
 
-						instrs = instrs->tail->tail;
+							instrs->head = load0;
+							instrs->tail = new AS::InstrList(load1, new AS::InstrList(instr, instrs->tail));
+
+							instrs = instrs->tail->tail;
+
+						}
+						else if(s0 != ns0 && s1 == ns1){
+							AS::Instr *load0 = new AS::MoveInstr(
+									"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
+									new TEMP::TempList(ns0, nullptr),
+									nullptr);
+							instrs->head = load0;
+							instrs->tail = new AS::InstrList(instr, instrs->tail);
+
+							instrs = instrs->tail;
+						}
+						else if(s0 == ns0 && s1 != ns1){
+							AS::Instr *load1 = new AS::MoveInstr(
+									"movq " + Temp2imm(f, s1) + "(%rsp),`d0",
+									new TEMP::TempList(ns1, nullptr),
+									nullptr);
+							instrs->head = load1;
+							instrs->tail = new AS::InstrList(instr, instrs->tail);
+
+							instrs = instrs->tail;
+						}
+
 					}
 					// s0
 					else{
 						TEMP::Temp *s0 = instr->Src()->head;
-						ReplaceTemp(instr->Src(), s0, F::R12());
+						TEMP::Temp *ns0 = ReplaceTemp(instr->Src(), s0, F::R12());
 						AS::Instr *load = new AS::MoveInstr(
 								"movq " + Temp2imm(f, s0) + "(%rsp),`d0",
-								new TEMP::TempList(F::R12(), nullptr),
+								new TEMP::TempList(ns0, nullptr),
 								nullptr);
 
 						instrs->head = load;

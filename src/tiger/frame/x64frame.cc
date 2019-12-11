@@ -32,6 +32,114 @@ class InRegAccess : public Access {
 };
 
 // X64Frame Implementation
+X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals): 
+	name(name), 
+	formals(nullptr), 
+	viewShift(nullptr),
+	size(0){
+		// newFrame函数必须做两件事
+		// 1. 在函数内如何看待参数(寄存器还是栈帧存储单元中)
+		// 2. 实现"视角位移"的指令
+
+		int parameterPos = 0;
+		AccessList *last = nullptr;
+		while(formals){
+			Access* access = AllocLocal(formals->head);
+			if(this->formals){
+				last->tail = new AccessList(access, nullptr);
+				last = last->tail;
+			}
+			else{
+				last = this->formals = new AccessList(access, nullptr);
+			}
+			//this->formals = new AccessList(access, this->formals);
+
+			switch(parameterPos){
+				case 0:
+					{
+						T::Stm *stm = new T::MoveStm(
+								new T::MemExp(
+									new T::BinopExp(
+										T::PLUS_OP,
+										new T::TempExp(FP()),
+										new T::ConstExp(-size))),
+								new T::TempExp(RDI()));
+						AppendViewShift(stm);
+					}
+					break;
+
+				case 1:
+					{
+						T::Stm *stm = new T::MoveStm(
+								new T::MemExp(
+									new T::BinopExp(
+										T::PLUS_OP,
+										new T::TempExp(FP()),
+										new T::ConstExp(-size))),
+								new T::TempExp(RSI()));
+						AppendViewShift(stm);
+					}
+					break;
+
+				case 2:
+					{
+						T::Stm *stm = new T::MoveStm(
+								new T::MemExp(
+									new T::BinopExp(
+										T::PLUS_OP,
+										new T::TempExp(FP()),
+										new T::ConstExp(-size))),
+								new T::TempExp(RCX()));
+						AppendViewShift(stm);
+					}
+					break;
+
+				case 3:
+					{
+						T::Stm *stm = new T::MoveStm(
+								new T::MemExp(
+									new T::BinopExp(
+										T::PLUS_OP,
+										new T::TempExp(FP()),
+										new T::ConstExp(-size))),
+								new T::TempExp(RDX()));
+						AppendViewShift(stm);
+					}
+					break;
+
+				case 4:
+					{
+						T::Stm *stm = new T::MoveStm(
+								new T::MemExp(
+									new T::BinopExp(
+										T::PLUS_OP,
+										new T::TempExp(FP()),
+										new T::ConstExp(-size))),
+								new T::TempExp(R8()));
+						AppendViewShift(stm);
+					}
+					break;
+
+				case 5:
+					{
+						T::Stm *stm = new T::MoveStm(
+								new T::MemExp(
+									new T::BinopExp(
+										T::PLUS_OP,
+										new T::TempExp(FP()),
+										new T::ConstExp(-size))),
+								new T::TempExp(R9()));
+						AppendViewShift(stm);
+					}
+					break;
+
+				default:
+					assert(0);
+			}
+			formals = formals->tail;
+		}
+}
+
 
 Access* X64Frame::AllocLocal(bool escape){
 	if(true){
@@ -45,7 +153,7 @@ Access* X64Frame::AllocLocal(bool escape){
 
 TEMP::TempList *X64Frame::returnSink = nullptr;
 
-T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
+T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 	 // (4) 将逃逸参数包括静态链保存至栈帧的指令，以及将非逃逸参数传送到新的临时寄存器的指令。
 	 // The stage above is moved to codegen when generating instructions for T::CallExp.
 
@@ -53,9 +161,8 @@ T::Stm* X64Frame::ProcEntryExit1(T::Exp* exp){
 	 // This stage may be delayed to lab6.
 
 	 // (7) 将返回值传送至专用于返回结果的寄存器的指令。
-	T::Stm *with_rv = new T::MoveStm(new T::TempExp(F::RV()), exp);
 
-	return with_rv;
+	return new T::SeqStm(viewShift, stm);
 }
 
 AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
@@ -85,11 +192,20 @@ AS::Proc* X64Frame::ProcEntryExit3(AS::InstrList* il){
 	return new AS::Proc(prolog, il, epilog);
 }
 
+void X64Frame::AppendViewShift(T::Stm *stm){
+	if(viewShift == nullptr){
+		viewShift = new T::SeqStm(stm, nullptr);
+		return;
+	}
+	T::SeqStm *last = dynamic_cast<T::SeqStm*>(viewShift);
+	while(last->right)last = dynamic_cast<T::SeqStm*>(last->right);
+	last->right = new T::SeqStm(stm, nullptr);
+}
+
 TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
 	TEMP::Map *regMap = TEMP::Map::Empty();
 	regMap->Enter(FP(), new std::string("%rsp"));
 	regMap->Enter(RAX(), new std::string("%rax"));
-	regMap->Enter(RV(), new std::string("%rdi"));
 	regMap->Enter(R12(), new std::string("%r10"));
 	regMap->Enter(R13(), new std::string("%r11"));
 
