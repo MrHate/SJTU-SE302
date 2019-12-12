@@ -106,7 +106,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 						}
 					default:
 						{
-							emit(new AS::OperInstr( "movq (`s0), `d0", TL(r, nullptr), TL(munchExp(e0->exp), nullptr), new AS::Targets(nullptr)));
+							emit(new AS::OperInstr( "movq `s0, `d0", TL(r, nullptr), TL(munchExp(e0->exp), nullptr), new AS::Targets(nullptr)));
 							return r;
 						}
 				}
