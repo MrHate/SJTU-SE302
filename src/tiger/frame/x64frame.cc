@@ -9,11 +9,14 @@ class InFrameAccess : public Access {
  public:
   int offset;
 
-  InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
+  InFrameAccess(int offset) : Access(INFRAME), offset(offset) {
+		//fprintf(stderr, "inframe: %d\n", offset);
+	}
 
 	T::Exp* ToExp(T::Exp* framePtr) const {
 		int off = offset;
-		if(off < -8) off += 8;
+		//if(off < -8) off += 8;
+		//fprintf(stderr, "toexp: %d\n", offset);
 		return new T::MemExp(
 				new T::BinopExp(
 					T::PLUS_OP,
@@ -60,11 +63,12 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 0:
 					{
 						T::Stm *stm = new T::MoveStm(
-								new T::MemExp(
-									new T::BinopExp(
-										T::PLUS_OP,
-										new T::TempExp(FP()),
-										new T::ConstExp(-size))),
+								//new T::MemExp(
+									//new T::BinopExp(
+									//  T::PLUS_OP,
+									//  new T::TempExp(FP()),
+									//  new T::ConstExp(-size))),
+								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(RDI()));
 						AppendViewShift(stm);
 					}

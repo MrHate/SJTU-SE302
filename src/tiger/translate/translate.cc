@@ -1055,6 +1055,10 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 			p_formals = p_formals->tail;
 		}
 
+#ifdef TRASNLATE_DEBUG_MSG
+	errormsg.Error(pos,"funcdec[%s] new level", func->name->Name().c_str());
+#endif
+
 		E::FunEntry *func_ent = new E::FunEntry(
 				// (2)
 				TR::Level::NewLevel(level, TEMP::NamedLabel(func->name->Name()),escapes),
@@ -1081,10 +1085,17 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 
 		// Enter parameters
 		A::FieldList *pf = func->params;
+		F::AccessList *func_formals = func_ent->level->frame->Formals()->tail;
 		while(pf){
-			TR::Access *formal_acc = TR::Access::AllocLocal(func_ent->level, true);
+			//TR::Access *formal_acc = TR::Access::AllocLocal(func_ent->level, true);
+			TR::Access *formal_acc = new TR::Access(func_ent->level, func_formals->head);
 			venv->Enter(pf->head->name,new E::VarEntry(formal_acc, tenv->Look(pf->head->typ)));
+
+			//fprintf(stderr, "formal[%s]\n", pf->head->name->Name().c_str());
+			//formal_acc->access->ToExp(new T::TempExp(F::FP()));
+
 			pf = pf->tail;
+			func_formals = func_formals->tail;
 		}
 
 
