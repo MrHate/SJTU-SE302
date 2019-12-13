@@ -126,6 +126,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 						oper_str = "subq";
 						break;
 					case T::MUL_OP:
+						//fprintf(stderr, "codegen imul\n");
 						oper_str = "imulq";
 						break;
 					case T::DIV_OP:
@@ -216,6 +217,7 @@ void munchStm(T::Stm* s){
 					// case MOVE( MEM( BINOP(
 					if(e1->exp->kind == T::Exp::BINOP){
 						T::BinopExp *e1b = dynamic_cast<T::BinopExp*>(e1->exp);
+						assert(e1b->op == T::PLUS_OP);
 						// case MOVE( MEM( BINOP( -, CONST() ) ), e2 )
 						if(e1b->right->kind == T::Exp::CONST){
 							emit(new AS::MoveInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->right)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->left), nullptr))));
@@ -224,6 +226,10 @@ void munchStm(T::Stm* s){
 						else if(e1b->left->kind == T::Exp::CONST){
 							emit(new AS::MoveInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->left)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->right), nullptr))));
 						}
+						else{
+							emit(new AS::MoveInstr("movq `s0,`d0", TL(munchExp(e0->dst), nullptr), TL(munchExp(e0->src), nullptr)));
+						}
+									
 					}
 
 					// case MOVE( MEM(), MEM() )

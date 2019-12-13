@@ -22,8 +22,10 @@ void SeqStm::Print(FILE *out, int d) const {
   indent(out, d);
   fprintf(out, "SEQ(\n");
   this->left->Print(out, d + 1);
-  fprintf(out, ",\n");
-  this->right->Print(out, d + 1);
+	if(this->right){
+		fprintf(out, ",\n");
+		this->right->Print(out, d + 1);
+	}
   fprintf(out, ")");
 }
 
@@ -93,7 +95,7 @@ void TempExp::Print(FILE *out, int d) const {
 void EseqExp::Print(FILE *out, int d) const {
   indent(out, d);
   fprintf(out, "ESEQ(\n");
-  this->stm->Print(out, d + 1);
+	if(stm) this->stm->Print(out, d + 1);
   fprintf(out, ",\n");
   this->exp->Print(out, d + 1);
   fprintf(out, ")");

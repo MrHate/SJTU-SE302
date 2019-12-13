@@ -533,6 +533,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
 			ret_exp = new TR::ExExp( new T::BinopExp( T::MINUS_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
 		case A::TIMES_OP:
+			//fprintf(stderr, "mul\n");
 			assert(!left_expty.ty->IsSameType(TY::StringTy::Instance()));
 			ret_exp = new TR::ExExp( new T::BinopExp( T::MUL_OP, left_expty.exp->UnEx(), right_expty.exp->UnEx()));
 			break;
