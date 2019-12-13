@@ -86,16 +86,19 @@ TEMP::Temp* munchExp(T::Exp* e){
 											TL(munchExp(e1->left), nullptr),
 											new AS::Targets(nullptr)));
 							else {
-								TEMP::Temp *lr = munchExp(e1->left);
+								emit(new AS::MoveInstr(
+											"movq `s0, %r12 # line 90",
+											nullptr,
+											TL(munchExp(e1->left), nullptr)));
 								emit(new AS::OperInstr(
-											"addq `s0, `d0",
-											TL(lr, nullptr),
+											"addq `s0, %r12 # line 94",
+											nullptr,
 											TL(munchExp(e1->right), nullptr),
 											new AS::Targets(nullptr)));
 								emit(new AS::MoveInstr(
-											"movq (`s0),`d0",
+											"movq (%r12),`d0 # line 99",
 											TL(r, nullptr),
-											TL(lr, nullptr)));
+											nullptr));
 							}
 							return r;
 						}
@@ -106,7 +109,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 						}
 					default:
 						{
-							emit(new AS::OperInstr( "movq `s0, `d0", TL(r, nullptr), TL(munchExp(e0->exp), nullptr), new AS::Targets(nullptr)));
+							emit(new AS::OperInstr( "movq `s0, `d0 # line112", TL(r, nullptr), TL(munchExp(e0->exp), nullptr), new AS::Targets(nullptr)));
 							return r;
 						}
 				}
@@ -227,7 +230,7 @@ void munchStm(T::Stm* s){
 							emit(new AS::MoveInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->left)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->right), nullptr))));
 						}
 						else{
-							emit(new AS::MoveInstr("movq `s0,`d0", TL(munchExp(e0->dst), nullptr), TL(munchExp(e0->src), nullptr)));
+							emit(new AS::MoveInstr("movq `s0,(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1->exp), nullptr))));
 						}
 									
 					}
