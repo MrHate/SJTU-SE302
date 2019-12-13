@@ -326,10 +326,11 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
 		//calculate exp to get offset
 		TR::ExpAndTy sub_expty = subscript->Translate(venv,tenv,level,label);
 		T::Exp *e = new T::MemExp(
-				new T::BinopExp(
-					T::PLUS_OP,
+				new T::BinopExp(T::PLUS_OP,
 					var_expty.exp->UnEx(),
-					sub_expty.exp->UnEx()));
+					new T::BinopExp(T::MUL_OP,
+						new T::ConstExp(F::X64Frame::wordSize),
+						sub_expty.exp->UnEx())));
 #ifdef TRASNLATE_DEBUG_MSG
 		errormsg.Error(pos,"subscriptvar array type: %s", arrty->ty->PrintActualTy().c_str());
 #endif
@@ -453,6 +454,7 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
 				sl = caller_lv->frame->Formals()->head->ToExp(sl);
 				caller_lv = caller_lv->parent;
 			}
+			sl = caller_lv->frame->Formals()->head->ToExp(sl);
 		}
 #ifdef TRASNLATE_DEBUG_MSG
 		errormsg.Error(pos,"callexp[%s] create static link ..2", func->Name().c_str());
