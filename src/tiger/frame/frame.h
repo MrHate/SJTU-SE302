@@ -138,7 +138,8 @@ TEMP::Temp* R13() ;
 TEMP::Temp* R14() ;
 TEMP::Temp* R15() ;
 
-//AS::Proc *F_procEntryExit3(Frame *frame, AS::InstrList *il){return nullptr;}
+TEMP::TempList *ArgRegs();
+TEMP::TempList *CallDefs();
 
 }  // namespace F
 

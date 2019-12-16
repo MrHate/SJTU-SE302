@@ -252,4 +252,29 @@ TEMP::Temp* R13() REGDEC
 TEMP::Temp* R14() REGDEC
 TEMP::Temp* R15() REGDEC
 
+TEMP::TempList* ArgRegs(){
+	static TEMP::TempList *_regs = nullptr;
+	if(_regs == nullptr){
+		_regs = new TEMP::TempList(
+				RDI(), new TEMP::TempList(
+					RSI(), new TEMP::TempList(
+						RCX(), new TEMP::TempList(
+							RDX(), new TEMP::TempList(
+								R8(), new TEMP::TempList(
+									R9(), nullptr))))));
+	}
+	return _regs;
+}
+
+TEMP::TempList* CallDefs(){
+	static TEMP::TempList *_regs = nullptr;
+	if(_regs == nullptr){
+		_regs = new TEMP::TempList(
+				F::RAX(), new TEMP::TempList(
+					F::R10(), new TEMP::TempList(
+						F::R11(), ArgRegs())));
+	}
+	return _regs;
+}
+
 }  // namespace F
