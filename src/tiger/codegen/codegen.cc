@@ -87,16 +87,16 @@ TEMP::Temp* munchExp(T::Exp* e){
 											new AS::Targets(nullptr)));
 							else {
 								emit(new AS::MoveInstr(
-											"movq `s0, %r12 # line 90",
+											"movq `s0, %r14 # line 90",
 											nullptr,
 											TL(munchExp(e1->left), nullptr)));
 								emit(new AS::OperInstr(
-											"addq `s0, %r12 # line 94",
+											"addq `s0, %r14 # line 94",
 											nullptr,
 											TL(munchExp(e1->right), nullptr),
 											new AS::Targets(nullptr)));
 								emit(new AS::MoveInstr(
-											"movq (%r12),`d0 # line 99",
+											"movq (%r14),`d0 # line 99",
 											TL(r, nullptr),
 											nullptr));
 							}
@@ -129,21 +129,20 @@ TEMP::Temp* munchExp(T::Exp* e){
 						oper_str = "subq";
 						break;
 					case T::MUL_OP:
-						//fprintf(stderr, "codegen imul\n");
 						oper_str = "imulq";
 						break;
 					case T::DIV_OP:
-						emit(new AS::MoveInstr("movq `s0,%rax", nullptr, TL(lr, nullptr)));
+						emit(new AS::MoveInstr("movq `s0,`d0", TL(F::RAX(), nullptr), TL(lr, nullptr)));
 						emit(new AS::OperInstr("cqto", nullptr, nullptr, new AS::Targets(nullptr)));
 						emit(new AS::OperInstr("idivq `s0", nullptr, TL(rr, nullptr), new AS::Targets(nullptr)));
-						emit(new AS::MoveInstr("movq %rax,`d0", TL(r, nullptr), nullptr));
+						emit(new AS::MoveInstr("movq `s0,`d0", TL(r, nullptr), TL(F::RAX(), nullptr)));
 						return r;
 					default:
 						assert(0);
 				}
-				emit(new AS::MoveInstr( "movq `s0,%rax", nullptr, TL(lr, nullptr)));
-				emit(new AS::OperInstr( oper_str + " `s0,%rax", nullptr, TL(rr, nullptr), new AS::Targets(nullptr)));
-				emit(new AS::MoveInstr( "movq %rax,`d0", TL(r,nullptr), nullptr));
+				emit(new AS::MoveInstr( "movq `s0,`d0", TL(F::RAX(), nullptr), TL(lr, nullptr)));
+				emit(new AS::OperInstr( oper_str + " `s0,`d0", TL(F::RAX(), nullptr), TL(rr, nullptr), new AS::Targets(nullptr)));
+				emit(new AS::MoveInstr( "movq `s0,`d0", TL(r,nullptr), TL(F::RAX(), nullptr)));
 				//emit(new AS::MoveInstr(
 				//      "movq `s0, `d0",
 				//      new TEMP::TempList(r, nullptr),

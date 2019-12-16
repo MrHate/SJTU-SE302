@@ -3,6 +3,8 @@
 
 #include <string>
 
+#define REGDEC { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+
 namespace F {
 
 class InFrameAccess : public Access {
@@ -211,38 +213,43 @@ void X64Frame::AppendViewShift(T::Stm *stm){
 
 TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
 	TEMP::Map *regMap = TEMP::Map::Empty();
-	regMap->Enter(FP(), new std::string("%rsp"));
+	regMap->Enter(RSP(), new std::string("%rsp"));
 	regMap->Enter(RAX(), new std::string("%rax"));
-	regMap->Enter(R12(), new std::string("%r10"));
-	regMap->Enter(R13(), new std::string("%r11"));
-
-	regMap->Enter(RDI(), new std::string("%rdi"));
-	regMap->Enter(RSI(), new std::string("%rsi"));
+	regMap->Enter(RBX(), new std::string("%rbx"));
 	regMap->Enter(RCX(), new std::string("%rcx"));
 	regMap->Enter(RDX(), new std::string("%rdx"));
+	regMap->Enter(RDI(), new std::string("%rdi"));
+	regMap->Enter(RSI(), new std::string("%rsi"));
 	regMap->Enter(R8(),  new std::string("%r8"));
 	regMap->Enter(R9(),  new std::string("%r9"));
+	regMap->Enter(R10(), new std::string("%r10"));
+	regMap->Enter(R11(), new std::string("%r11"));
+	regMap->Enter(R12(), new std::string("%r12"));
+	regMap->Enter(R13(), new std::string("%r13"));
+	regMap->Enter(R14(), new std::string("%r14"));
+	regMap->Enter(R15(), new std::string("%r15"));
 	return regMap;
 }
 
 // Global Registers
 
-TEMP::Temp* FP() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* FP() REGDEC
 TEMP::Temp* RV() { return RAX();}
 
-TEMP::Temp* RSP(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* RAX(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* RDI(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* RSI(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* RDX(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* RCX(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R8() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R9() { static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R10(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R11(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R12(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R13(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R14(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
-TEMP::Temp* R15(){ static TEMP::Temp *_t = nullptr; if(!_t) _t = TEMP::Temp::NewTemp(); return _t; }
+TEMP::Temp* RSP() REGDEC
+TEMP::Temp* RAX() REGDEC
+TEMP::Temp* RBX() REGDEC
+TEMP::Temp* RCX() REGDEC
+TEMP::Temp* RDX() REGDEC
+TEMP::Temp* RDI() REGDEC
+TEMP::Temp* RSI() REGDEC
+TEMP::Temp* R8()  REGDEC
+TEMP::Temp* R9()  REGDEC
+TEMP::Temp* R10() REGDEC
+TEMP::Temp* R11() REGDEC
+TEMP::Temp* R12() REGDEC
+TEMP::Temp* R13() REGDEC
+TEMP::Temp* R14() REGDEC
+TEMP::Temp* R15() REGDEC
 
 }  // namespace F
