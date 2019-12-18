@@ -5,7 +5,9 @@
 
 namespace ESC {
 
+class EscapeEntry;
 void FindEscape(A::Exp* exp);
+
 }  // namespace ESC
 
 #endif
