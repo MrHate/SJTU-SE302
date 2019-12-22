@@ -22,6 +22,9 @@ class LiveGraph {
  public:
   G::Graph<TEMP::Temp>* graph;
   MoveList* moves;
+
+	LiveGraph(G::Graph<TEMP::Temp>* graph, MoveList* moves)
+		:graph(graph), moves(moves){}
 };
 
 LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph);

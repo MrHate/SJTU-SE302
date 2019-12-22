@@ -138,8 +138,9 @@ TEMP::Temp* R13() ;
 TEMP::Temp* R14() ;
 TEMP::Temp* R15() ;
 
-TEMP::TempList *ArgRegs();
-TEMP::TempList *CallDefs();
+TEMP::TempList* ArgRegs();
+TEMP::TempList* CallDefs();
+TEMP::TempList* HardRegs();
 
 }  // namespace F
 

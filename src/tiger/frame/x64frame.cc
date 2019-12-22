@@ -277,4 +277,26 @@ TEMP::TempList* CallDefs(){
 	return _regs;
 }
 
+TEMP::TempList* HardRegs(){
+	static TEMP::TempList *_regs = nullptr;
+	if(_regs == nullptr){
+		_regs = new TEMP::TempList(
+				F::RAX(), new TEMP::TempList(
+					F::RBX(), new TEMP::TempList(
+						F::RCX(), new TEMP::TempList(
+							F::RDX(), new TEMP::TempList(
+								F::RDI(), new TEMP::TempList(
+									F::RSI(), new TEMP::TempList(
+										F::R8(),  new TEMP::TempList(
+											F::R9(),  new TEMP::TempList(
+												F::R10(), new TEMP::TempList(
+													F::R11(), new TEMP::TempList(
+														F::R12(), new TEMP::TempList(
+															F::R13(), new TEMP::TempList(
+																F::R14(), new TEMP::TempList(
+																	F::R15(), nullptr))))))))))))));
+	}
+	return _regs;
+}
+
 }  // namespace F
