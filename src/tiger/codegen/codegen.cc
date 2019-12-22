@@ -283,7 +283,7 @@ AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
 	fs = f->Name()->Name() + "_framesize";
 	iList = last = new AS::InstrList(nullptr, nullptr);
 	for(T::StmList *sl = stmList; sl; sl = sl->tail) munchStm(sl->head);
-  return iList;
+  return f->ProcEntryExit2(iList);
 }
 
 }  // namespace CG

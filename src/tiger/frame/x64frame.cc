@@ -176,7 +176,7 @@ T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 
 AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
 	if (returnSink == nullptr){
-		returnSink = new TEMP::TempList(RSP(), new TEMP::TempList(RAX(), nullptr));
+		returnSink = new TEMP::TempList(RSP(), new TEMP::TempList(RV(), CalleeSaves()));
 	}
 	return AS::InstrList::Splice(body, new AS::InstrList(new AS::OperInstr("",nullptr,returnSink,nullptr), nullptr));
 }
@@ -266,13 +266,26 @@ TEMP::TempList* ArgRegs(){
 	return _regs;
 }
 
-TEMP::TempList* CallDefs(){
+TEMP::TempList* CallerSaves(){
 	static TEMP::TempList *_regs = nullptr;
 	if(_regs == nullptr){
 		_regs = new TEMP::TempList(
-				F::RAX(), new TEMP::TempList(
-					F::R10(), new TEMP::TempList(
+				F::RBX(), new TEMP::TempList(
+					F::R12(), new TEMP::TempList(
 						F::R11(), ArgRegs())));
+	}
+	return _regs;
+}
+
+TEMP::TempList* CalleeSaves(){
+	static TEMP::TempList *_regs = nullptr;
+	if(_regs == nullptr){
+		_regs = new TEMP::TempList(
+				F::RBX(), new TEMP::TempList(
+					F::R12(), new TEMP::TempList(
+						F::R13(), new TEMP::TempList(
+							F::R14(), new TEMP::TempList(
+								F::R15(), nullptr)))));
 	}
 	return _regs;
 }
