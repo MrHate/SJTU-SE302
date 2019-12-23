@@ -1,4 +1,6 @@
+#include "tiger/regalloc/color.h"
 #include "tiger/regalloc/regalloc.h"
+#include "tiger/liveness/flowgraph.h"
 
 #include <map>
 
@@ -14,7 +16,7 @@ namespace {
 	TEMP::Temp* ReplaceTemp(TEMP::TempList *tl, TEMP::Temp *target, TEMP::Temp *t){
 		TEMP::TempList *p = HasTemp(tl,target);
 		assert(p);
-		if(target == F::RAX() || target == F::RDI() || target == F::RSI() || target == F::RCX() || target == F::RDX() || target == F::R8() || target == F::R9())return target;
+		//if(target == F::RAX() || target == F::RDI() || target == F::RSI() || target == F::RCX() || target == F::RDX() || target == F::R8() || target == F::R9())return target;
 		p->head = t;
 		return t;
 	}
@@ -163,11 +165,12 @@ namespace {
 	}
 
 	void RewriteProgram(F::Frame *f, AS::InstrList *il, TEMP::TempList *spills){
-		temp2offset.clear();
+		//temp2offset.clear();
 
 		for(; spills; spills = spills->tail){
 			TEMP::Temp* spill_head = spills->head,
-				*replace_reg = F::R12();
+				*replace_reg = TEMP::Temp::NewTemp();
+			//f->AllocLocal(false);
 			
 			if(!temp2offset.count(spill_head)){
 				F::Access *acc = f->AllocLocal(false);
@@ -202,33 +205,22 @@ namespace {
 		}
 	}
 
-	TEMP::TempList* GrabAllTemp(AS::InstrList *il){
-		TEMP::TempList *res = nullptr;
-		for(; il; il = il->tail){
-			AS::Instr *instr = il->head;
-			if(!instr){
-				il->head = new AS::MoveInstr("", nullptr, nullptr);
-				continue;
-			}
-			if(instr->kind == AS::Instr::OPER || instr->kind == AS::Instr::MOVE){
-				TEMP::TempList *p = instr->Dst();
-				for(; p; p = p->tail) res = new TEMP::TempList(p->head, res);
-				p = instr->Src();
-				for(; p; p = p->tail) res = new TEMP::TempList(p->head, res);
-			}
-		}
-		return res;
-	}
-
 } // anonymous namespace
 
 namespace RA {
 
 Result RegAlloc(F::Frame* f, AS::InstrList* il) {
-	EasyRewriteProgram(f, il);
+	//EasyRewriteProgram(f, il);
 
-  return Result(f->RegAlloc(il), il);
-	//Result(TEMP::Map* coloring, AS::InstrList* il): coloring(coloring), il(il){}
+	COL::Result cr;
+	while(true) {
+		G::Graph<AS::Instr>* fg = FG::AssemFlowGraph(il, f);
+		LIVE::LiveGraph lg = LIVE::Liveness(fg);
+		cr = COL::Color(lg.graph, f->RegAlloc(il), F::HardRegs(), lg.moves);
+		if(cr.spills == nullptr)break;
+		RewriteProgram(f, il, cr.spills);
+	}
+  return Result(cr.coloring, il);
 }
 
 }  // namespace RA
