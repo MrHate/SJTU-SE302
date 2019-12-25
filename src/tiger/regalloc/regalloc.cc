@@ -173,7 +173,7 @@ namespace {
 			//f->AllocLocal(false);
 			
 			if(!temp2offset.count(spill_head)){
-				F::Access *acc = f->AllocLocal(false);
+				F::Access *acc = f->AllocLocal(true);
 				temp2offset[spill_head] = dynamic_cast<F::X64Frame*>(f)->size;
 			}
 			std::string imm = "(" + TEMP::LabelString(f->Name()) + "_framesize-" + std::to_string(temp2offset[spill_head]) + ")";
