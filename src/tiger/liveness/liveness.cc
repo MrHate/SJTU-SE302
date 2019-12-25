@@ -28,26 +28,30 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
 	std::map<TEMP::Temp*, TempNode*> temp2node;
 	conflictHardRegs(g, temp2node);
 
+	// construct flow graph from bottom to top
 	node2outTempList.clear();
 	node2inTempList.clear();
 	while(!constructGraphFromBottom(flowgraph->Nodes()));
 
-	for(std::map<InstrNode*, TEMP::TempList*>::iterator i = node2inTempList.begin(); i != node2inTempList.end(); i++)
-		for(TEMP::TempList *temps = i->second; temps; temps = temps->tail)
-			if(!temp2node.count(temps->head))
-				temp2node[temps->head] = g->NewNode(temps->head);
-	for(std::map<InstrNode*, TEMP::TempList*>::iterator i = node2outTempList.begin(); i != node2outTempList.end(); i++)
-		for(TEMP::TempList *temps = i->second; temps; temps = temps->tail)
-			if(!temp2node.count(temps->head))
-				temp2node[temps->head] = g->NewNode(temps->head);
+	// Enter all temps as nodes
+	for(G::NodeList<AS::Instr>* nodes = flowgraph->Nodes(); nodes; nodes = nodes->tail) {
+		for(TEMP::TempList* tl = nodes->head->NodeInfo()->Dst(); tl; tl = tl->tail)
+			if(!temp2node.count(tl->head))
+				temp2node[tl->head] = g->NewNode(tl->head);
+		for(TEMP::TempList* tl = nodes->head->NodeInfo()->Src(); tl; tl = tl->tail)
+			if(!temp2node.count(tl->head))
+				temp2node[tl->head] = g->NewNode(tl->head);
+	}
 
+	// defs conflict with living out
 	for(G::NodeList<AS::Instr> *instrNodes = flowgraph->Nodes(); instrNodes; instrNodes = instrNodes->tail){
 		InstrNode *curNode = instrNodes->head;
+
 		for(TEMP::TempList *defs = FG::Def(curNode); defs; defs = defs->tail){
 			TempNode *a = temp2node[defs->head];
 			for(TEMP::TempList *outs = node2outTempList[curNode]; outs; outs = outs->tail){
 				TempNode *b = temp2node[outs->head];
-				if(a != b && !b->Adj()->InNodeList(a) && (!FG::IsMove(curNode) || inTempList(FG::Use(curNode), outs->head))){
+				if(a != b && !b->Adj()->InNodeList(a) && (!FG::IsMove(curNode) || !inTempList(FG::Use(curNode), outs->head))){
 					g->AddEdge(a, b);
 					g->AddEdge(b, a);
 				}
@@ -59,6 +63,23 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
 						moves = new MoveList(b, a, moves);
 				}
 		}
+
+		// print defs, uses, outs for debugging
+		//curNode->NodeInfo()->Print(stderr, nullptr);
+		//fprintf(stderr, "def[");
+		//for(TEMP::TempList *defs = FG::Def(curNode); defs; defs = defs->tail)
+		//  fprintf(stderr, "%d, ", defs->head->Int());
+		//fprintf(stderr, "] in[");
+		//for(TEMP::TempList *ins = node2inTempList[curNode]; ins; ins = ins->tail)
+		//  fprintf(stderr, "%d, ", ins->head->Int());
+		//fprintf(stderr, "] use[");
+		//for(TEMP::TempList *uses = FG::Use(curNode); uses; uses = uses->tail)
+		//  fprintf(stderr, "%d, ", uses->head->Int());
+		//fprintf(stderr, "] out[");
+		//for(TEMP::TempList *outs = node2outTempList[curNode]; outs; outs = outs->tail)
+		//  fprintf(stderr, "%d, ", outs->head->Int());
+		//fprintf(stderr, "]\n");
+
 	}
 
 
@@ -92,8 +113,14 @@ namespace {
 		InstrNode *instr = instrs->head;
 		TEMP::TempList *ins = nullptr,
 			*outs = nullptr;
-		for(G::NodeList<AS::Instr> *succs = instr->Succ(); succs; succs = succs->tail)
+
+		//instr->NodeInfo()->Print(stderr, nullptr);
+		//fprintf(stderr, ">>\n");
+		for(G::NodeList<AS::Instr> *succs = instr->Succ(); succs; succs = succs->tail){
+			//succs->head->NodeInfo()->Print(stderr, nullptr);
 			outs = spliceTempList(outs, node2inTempList[succs->head]);
+		}
+		//fprintf(stderr, "\n");
 
 		ins = spliceTempList(FG::Use(instr), filterTempList(outs, FG::Def(instr)));
 

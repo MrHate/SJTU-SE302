@@ -11,6 +11,10 @@ class Result {
  public:
   TEMP::Map* coloring;
   TEMP::TempList* spills;
+
+	Result(){}
+	Result(TEMP::Map* coloring, TEMP::TempList* spills):
+		coloring(coloring), spills(spills){}
 };
 
 Result Color(G::Graph<TEMP::Temp>* ig, TEMP::Map* initial, TEMP::TempList* regs,

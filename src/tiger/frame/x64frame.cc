@@ -220,6 +220,7 @@ TEMP::Map* X64Frame::RegAlloc(AS::InstrList* il){
 	regMap->Enter(RDX(), new std::string("%rdx"));
 	regMap->Enter(RDI(), new std::string("%rdi"));
 	regMap->Enter(RSI(), new std::string("%rsi"));
+	regMap->Enter(RBP(), new std::string("%rbp"));
 	regMap->Enter(R8(),  new std::string("%r8"));
 	regMap->Enter(R9(),  new std::string("%r9"));
 	regMap->Enter(R10(), new std::string("%r10"));
@@ -243,6 +244,7 @@ TEMP::Temp* RCX() REGDEC
 TEMP::Temp* RDX() REGDEC
 TEMP::Temp* RDI() REGDEC
 TEMP::Temp* RSI() REGDEC
+TEMP::Temp* RBP() REGDEC
 TEMP::Temp* R8()  REGDEC
 TEMP::Temp* R9()  REGDEC
 TEMP::Temp* R10() REGDEC

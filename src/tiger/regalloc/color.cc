@@ -25,17 +25,21 @@ namespace {
 	bool conservative(TempNodeList* nodes);
 	TempNode* getAlias(TempNode* n);
 	void combine(TempNode* u, TempNode* v);
-	void assignColors();
+	void assignColors(TempGraph* ig);
 
-	std::string temp2reg(TEMP::Temp* t);
 	bool inTempList(TEMP::TempList* tl, TEMP::Temp* t);
+
+	TempNodeList* subNodeList(TempNodeList* from, TempNodeList* targets);
+
 	LIVE::MoveList* catMoveList(LIVE::MoveList* a, LIVE::MoveList* b);
 	bool inMoveList(LIVE::MoveList* moves, TempNode* src, TempNode* dst);
 	LIVE::MoveList* deleteFromMoveList(LIVE::MoveList* moves, TempNode* src, TempNode* dst);
+
 	bool precolored(TempNode* n);
 	bool briggs(TempNode* u, TempNode* v);
 
 	const int K = 15;
+	std::string hardRegs[17] = {"none", "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%rbp", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15", "%rsp"};
 	TempNodeList *simplifyWorkList = nullptr,
 							 *freezeWorkList = nullptr,
 							 *spillWorkList = nullptr,
@@ -56,8 +60,23 @@ namespace COL {
 
 Result Color(G::Graph<TEMP::Temp>* ig, TEMP::Map* initial, TEMP::TempList* regs,
              LIVE::MoveList* moves) {
-  // TODO: Put your codes here (lab6).
-  return Result();
+	build(ig);
+	makeWorkList(ig);
+	while(simplifyWorkList || workListMoves || freezeWorkList || spillWorkList){
+		if(simplifyWorkList) simplify();
+		else if(workListMoves) coalesce();
+		else if(freezeWorkList) freeze();
+		else if(spillWorkList) selectSpill();
+	}
+	assignColors(ig);
+	for(TempNodeList *nodes = ig->Nodes(); nodes; nodes = nodes->tail)
+		initial->Enter(nodes->head->NodeInfo(), new std::string(hardRegs[color[nodes->head]]));
+	
+	TEMP::TempList *actualSpills = nullptr;
+	for(; spilledNodes; spilledNodes = spilledNodes->tail)
+		actualSpills = new TEMP::TempList(spilledNodes->head->NodeInfo(), actualSpills);
+
+  return Result(initial, actualSpills);
 }
 
 }  // namespace COL
@@ -67,6 +86,25 @@ namespace {
 		// init degrees
 		for(TempNodeList *nodes = ig->Nodes(); nodes; nodes = nodes->tail){
 			TempNode *n = nodes->head;
+			TEMP::Temp *nt = n->NodeInfo();
+
+			if(nt == F::RAX()) color[n] = 1;
+			else if(nt == F::RBX()) color[n] = 2;
+			else if(nt == F::RCX()) color[n] = 3;
+			else if(nt == F::RDX()) color[n] = 4;
+			else if(nt == F::RSI()) color[n] = 5;
+			else if(nt == F::RDI()) color[n] = 6;
+			else if(nt == F::RBP()) color[n] = 7;
+			else if(nt == F::R8())  color[n] = 8;
+			else if(nt == F::R9())  color[n] = 9;
+			else if(nt == F::R10()) color[n] = 10;
+			else if(nt == F::R11()) color[n] = 11;
+			else if(nt == F::R12()) color[n] = 12;
+			else if(nt == F::R13()) color[n] = 13;
+			else if(nt == F::R14()) color[n] = 14;
+			else if(nt == F::R15()) color[n] = 15;
+			else color[n] = 0;
+			
 			int curDegree = 0;
 			for(TempNodeList *succs = n->Succ(); succs; succs = succs->tail) ++curDegree;
 			degree[n] = curDegree;
@@ -86,6 +124,7 @@ namespace {
 		}
 	}
 	void simplify(){
+		//fprintf(stderr, "start simplify\n");
 		TempNode *n = simplifyWorkList->head;
 		simplifyWorkList = simplifyWorkList->tail;
 		selectStack = new TempNodeList(n, selectStack);
@@ -169,12 +208,10 @@ namespace {
 			assert(0);
 	}
 	TempNodeList* adjacent(TempNode* n){
-		TempNodeList *res = n->Succ();
-		for(TempNodeList *nodes = selectStack; nodes; nodes = nodes->tail)
-			res = TempNodeList::DeleteNode(nodes->head, res);
-		for(TempNodeList *nodes = coalescedNodes; nodes; nodes = nodes->tail)
-			res = TempNodeList::DeleteNode(nodes->head, res);
-		return res;
+		// return the set of the nodes adjacent but not 
+		//  - simplified into selectStack
+		//  - coalesced with other nodes
+		return subNodeList(subNodeList(n->Adj(), selectStack), coalescedNodes);
 	}
 	void addEdge(TempNode* u, TempNode* v){
 		if(!v->Adj()->InNodeList(u) && u != v){
@@ -266,7 +303,10 @@ namespace {
 		}
 	}
 	void assignColors(TempGraph* ig){
+		spilledNodes = nullptr;
 		while(selectStack){
+			//fprintf(stderr, "start assigning color\n");
+
 			TempNode *n = selectStack->head; selectStack = selectStack->tail;
 			bool usedColors[K + 2] = {0};
 			for(TempNodeList *adjs = n->Succ(); adjs; adjs = adjs->tail)
@@ -280,23 +320,15 @@ namespace {
 				}
 			if(realSpill)
 				spilledNodes = new TempNodeList(n, spilledNodes);
-			else
+			else {
+				//fprintf(stderr, "assigned color: %s\n", hardRegs[i].c_str());
 				color[n] = i;
+			}
 		}
 
+		// assign the coalesced with the same color
 		for(TempNodeList *p = ig->Nodes(); p; p = p->tail)
 			color[p->head] = color[getAlias(p->head)];
-	}
-	std::string temp2reg(TEMP::Temp* t){
-		static std::map<TEMP::Temp*, std::string> mm;
-		if(mm.empty()){
-			mm[F::RAX()] = "%rax"; mm[F::RBX()] = "%rbx"; mm[F::RCX()] = "%rcx";
-			mm[F::RDX()] = "%rdx"; mm[F::RDI()] = "%rdi"; mm[F::RSI()] = "%rsi";
-			mm[F::R8()]  = "%r8" ; mm[F::R9()]  = "%r9" ; mm[F::R10()] = "%r10";
-			mm[F::R11()] = "%r11"; mm[F::R12()] = "%r12"; mm[F::R13()] = "%r13";
-			mm[F::R14()] = "%r14"; mm[F::R15()] = "%r15"; mm[F::RSP()] = "%rsp";
-		}
-		return mm[t];
 	}
 	bool inMoveList(LIVE::MoveList* moves, TempNode* src, TempNode* dst){
 		for(; moves; moves = moves->tail)
@@ -346,5 +378,12 @@ namespace {
 		for(; nodes; nodes = nodes->tail)
 			if(degree[nodes->head] >= K) ++cnt;
 		return cnt < K;
+	}
+	TempNodeList* subNodeList(TempNodeList* from, TempNodeList* targets){
+		TempNodeList *res = nullptr;
+		for(TempNodeList *nodes = from; nodes; nodes = nodes->tail)
+			if(!targets->InNodeList(nodes->head))
+				res = new TempNodeList(nodes->head, res);
+		return res;
 	}
 }

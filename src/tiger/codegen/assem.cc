@@ -38,14 +38,16 @@ static std::string format(std::string assem, TEMP::TempList* dst,
         case 's': {
           i++;
           int n = assem.at(i) - '0';
-          std::string* s = m->Look(nth_temp(src, n));
-          result += *s;
+					std::string* s = m->Look(nth_temp(src, n));
+					result += *s;
+					//result += 'r' + std::to_string(nth_temp(src, n)->Int());
         } break;
         case 'd': {
           i++;
           int n = assem.at(i) - '0';
-          std::string* s = m->Look(nth_temp(dst, n));
-          result += *s;
+					std::string* s = m->Look(nth_temp(dst, n));
+					result += *s;
+					//result += 'r' + std::to_string(nth_temp(dst, n)->Int());
         } break;
         case 'j': {
           i++;

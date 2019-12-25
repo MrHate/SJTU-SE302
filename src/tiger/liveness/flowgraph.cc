@@ -22,19 +22,22 @@ G::Graph<AS::Instr>* AssemFlowGraph(AS::InstrList* il, F::Frame* f) {
 
 	for(AS::InstrList *i = il; i; i = i->tail){
 		AS::Instr *instr = i->head;
+		if(!instr) continue;
 		G::Node<AS::Instr> *node = g->NewNode(instr);
 		switch(instr->kind){
 			case AS::Instr::OPER:
-				if(prevInstr) g->AddEdge(prevInstr, node);
+				if(prevInstr) G::Graph<AS::Instr>::AddEdge(prevInstr, node);
 				if(dynamic_cast<AS::OperInstr*>(instr)->assem.substr(0,3) == "jmp") prevInstr = nullptr;
 				else prevInstr = node;
 				break;
 			case AS::Instr::MOVE:
-				if(prevInstr) g->AddEdge(prevInstr, node);
+				if(prevInstr) G::Graph<AS::Instr>::AddEdge(prevInstr, node);
 				prevInstr = node;
 				break;
 			case AS::Instr::LABEL:
+				if(prevInstr) G::Graph<AS::Instr>::AddEdge(prevInstr, node);
 				label2Instr[dynamic_cast<AS::LabelInstr*>(instr)->label] = node;
+				prevInstr = node;
 				break;
 
 			default: assert(0);
@@ -47,7 +50,7 @@ G::Graph<AS::Instr>* AssemFlowGraph(AS::InstrList* il, F::Frame* f) {
 			AS::OperInstr *opInstr = dynamic_cast<AS::OperInstr*>(instr);
 			if(opInstr->jumps != nullptr)
 				for(TEMP::LabelList *targets = opInstr->jumps->labels; targets; targets = targets->tail)
-					g->AddEdge(nodes->head, label2Instr[targets->head]);
+					G::Graph<AS::Instr>::AddEdge(nodes->head, label2Instr[targets->head]);
 		}
 	}
 

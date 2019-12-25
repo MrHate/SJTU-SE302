@@ -129,6 +129,7 @@ TEMP::Temp* RCX() ;
 TEMP::Temp* RDX() ;
 TEMP::Temp* RDI() ;
 TEMP::Temp* RSI() ;
+TEMP::Temp* RBP() ;
 TEMP::Temp* R8() ;
 TEMP::Temp* R9() ;
 TEMP::Temp* R10() ;

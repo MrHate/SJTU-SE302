@@ -205,6 +205,33 @@ namespace {
 		}
 	}
 
+	void showFlowGraph(AS::Instr* inst){
+		inst->Print(stderr, nullptr);
+	}
+	void showLiveness(TEMP::Temp* t){
+		std::string regName = "";
+		if(t == F::RAX()) regName = "%rax";
+		else if(t == F::RBX()) regName = "%rbx";
+		else if(t == F::RCX()) regName = "%rcx";
+		else if(t == F::RDX()) regName = "%rdx";
+		else if(t == F::RSI()) regName = "%rsi";
+		else if(t == F::RDI()) regName = "%rdi";
+		else if(t == F::RBP()) regName = "%rbp";
+		else if(t == F::R8())  regName = "%r8";
+		else if(t == F::R9())  regName = "%r9";
+		else if(t == F::R10()) regName = "%r10";
+		else if(t == F::R11()) regName = "%r11";
+		else if(t == F::R12()) regName = "%r12";
+		else if(t == F::R13()) regName = "%r13";
+		else if(t == F::R14()) regName = "%r14";
+		else if(t == F::R15()) regName = "%r15";
+
+		if(regName == "")
+			fprintf(stderr, "t: %d\n", t->Int());
+		else 
+			fprintf(stderr, "t: %s: %d\n", regName.c_str(), t->Int());
+	}
+
 } // anonymous namespace
 
 namespace RA {
@@ -213,9 +240,16 @@ Result RegAlloc(F::Frame* f, AS::InstrList* il) {
 	//EasyRewriteProgram(f, il);
 
 	COL::Result cr;
+	// TODO: comment the line below
+	cr.coloring = f->RegAlloc(il);
+
 	while(true) {
 		G::Graph<AS::Instr>* fg = FG::AssemFlowGraph(il, f);
+		//G::Graph<AS::Instr>::Show(stderr, fg->Nodes(), showFlowGraph);
+
 		LIVE::LiveGraph lg = LIVE::Liveness(fg);
+		//G::Graph<TEMP::Temp>::Show(stderr, lg.graph->Nodes(), showLiveness);
+
 		cr = COL::Color(lg.graph, f->RegAlloc(il), F::HardRegs(), lg.moves);
 		if(cr.spills == nullptr)break;
 		RewriteProgram(f, il, cr.spills);
