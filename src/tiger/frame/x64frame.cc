@@ -11,14 +11,10 @@ class InFrameAccess : public Access {
  public:
   int offset;
 
-  InFrameAccess(int offset) : Access(INFRAME), offset(offset) {
-		//fprintf(stderr, "inframe: %d\n", offset);
-	}
+  InFrameAccess(int offset) : Access(INFRAME), offset(offset) {}
 
 	T::Exp* ToExp(T::Exp* framePtr) const {
 		int off = offset;
-		//if(off < -8) off += 8;
-		//fprintf(stderr, "toexp: %d\n", offset);
 		return new T::MemExp(
 				new T::BinopExp(
 					T::PLUS_OP,
@@ -65,11 +61,6 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 0:
 					{
 						T::Stm *stm = new T::MoveStm(
-								//new T::MemExp(
-									//new T::BinopExp(
-									//  T::PLUS_OP,
-									//  new T::TempExp(FP()),
-									//  new T::ConstExp(-size))),
 								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(RDI()));
 						AppendViewShift(stm);
@@ -79,11 +70,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 1:
 					{
 						T::Stm *stm = new T::MoveStm(
-								new T::MemExp(
-									new T::BinopExp(
-										T::PLUS_OP,
-										new T::TempExp(FP()),
-										new T::ConstExp(-size))),
+								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(RSI()));
 						AppendViewShift(stm);
 					}
@@ -92,11 +79,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 2:
 					{
 						T::Stm *stm = new T::MoveStm(
-								new T::MemExp(
-									new T::BinopExp(
-										T::PLUS_OP,
-										new T::TempExp(FP()),
-										new T::ConstExp(-size))),
+								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(RCX()));
 						AppendViewShift(stm);
 					}
@@ -105,11 +88,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 3:
 					{
 						T::Stm *stm = new T::MoveStm(
-								new T::MemExp(
-									new T::BinopExp(
-										T::PLUS_OP,
-										new T::TempExp(FP()),
-										new T::ConstExp(-size))),
+								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(RDX()));
 						AppendViewShift(stm);
 					}
@@ -118,11 +97,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 4:
 					{
 						T::Stm *stm = new T::MoveStm(
-								new T::MemExp(
-									new T::BinopExp(
-										T::PLUS_OP,
-										new T::TempExp(FP()),
-										new T::ConstExp(-size))),
+								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(R8()));
 						AppendViewShift(stm);
 					}
@@ -131,11 +106,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 				case 5:
 					{
 						T::Stm *stm = new T::MoveStm(
-								new T::MemExp(
-									new T::BinopExp(
-										T::PLUS_OP,
-										new T::TempExp(FP()),
-										new T::ConstExp(-size))),
+								access->ToExp(new T::TempExp(FP())),
 								new T::TempExp(R9()));
 						AppendViewShift(stm);
 					}
@@ -151,7 +122,7 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 
 
 Access* X64Frame::AllocLocal(bool escape){
-	if(true){
+	if(escape){
 		size += wordSize;
 		return new InFrameAccess(-size);
 	}

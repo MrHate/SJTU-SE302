@@ -108,7 +108,7 @@ namespace {
 				{
 					ESC::EscapeEntry *ent = _env->Look(dynamic_cast<A::SimpleVar*>(var)->sym);
 					assert(ent);
-					if(ent->depth < depth) *(ent->escape) = false;
+					if(ent->depth < depth) *(ent->escape) = true;
 				}
 				break;
 			case A::Var::FIELD:
@@ -144,7 +144,7 @@ namespace {
 				{
 					A::VarDec *d = dynamic_cast<A::VarDec*>(dec);
 					ESC::EscapeEntry *ent = new ESC::EscapeEntry(depth, &d->escape);
-					d->escape = true;
+					d->escape = false;
 					_env->Enter(d->var, ent);
 				}
 				break;
