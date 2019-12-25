@@ -273,8 +273,9 @@ TEMP::TempList* CallerSaves(){
 	if(_regs == nullptr){
 		_regs = new TEMP::TempList(
 				F::RBX(), new TEMP::TempList(
-					F::R12(), new TEMP::TempList(
-						F::R11(), ArgRegs())));
+					F::R10(), new TEMP::TempList(
+						F::R11(), new TEMP::TempList(
+							F::R12(), ArgRegs()))));
 	}
 	return _regs;
 }

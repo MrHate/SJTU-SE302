@@ -109,7 +109,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 						break;
 					case T::DIV_OP:
 						emit(new AS::MoveInstr("movq `s0,`d0 # doing division ..1", TL(F::RAX(), nullptr), TL(lr, nullptr)));
-						emit(new AS::OperInstr("cqto # doing division ..2", nullptr, nullptr, new AS::Targets(nullptr)));
+						emit(new AS::OperInstr("cqto # doing division ..2", TL(F::RDX(), nullptr), nullptr, new AS::Targets(nullptr)));
 						emit(new AS::OperInstr("idivq `s0 # doing division ..3", nullptr, TL(rr, nullptr), new AS::Targets(nullptr)));
 						emit(new AS::MoveInstr("movq `s0,`d0 # doing division ..4", TL(r, nullptr), TL(F::RAX(), nullptr)));
 						return r;
@@ -173,6 +173,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 					emit(new AS::OperInstr( "addq $" + std::to_string(pushs * 8) + ",%rsp # reclaim stack for args", nullptr, nullptr, new AS::Targets(nullptr)));
 				}
 				emit(new AS::MoveInstr("movq `s0,`d0 # line 175 get return value", TL(r, nullptr), TL(F::RV(), nullptr)));
+				emit(new AS::OperInstr("# caller saves", F::CallerSaves(), nullptr, new AS::Targets(nullptr)));
 				return r;
 			}
 		case T::Exp::ESEQ:

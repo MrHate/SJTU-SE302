@@ -38,8 +38,8 @@ namespace {
 	bool precolored(TempNode* n);
 	bool briggs(TempNode* u, TempNode* v);
 
-	const int K = 15;
-	std::string hardRegs[17] = {"none", "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%rbp", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15", "%rsp"};
+	const int K = 14;
+	std::string hardRegs[15] = {"none", "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"};
 	TempNodeList *simplifyWorkList = nullptr,
 							 *freezeWorkList = nullptr,
 							 *spillWorkList = nullptr,
@@ -94,15 +94,15 @@ namespace {
 			else if(nt == F::RDX()) color[n] = 4;
 			else if(nt == F::RSI()) color[n] = 5;
 			else if(nt == F::RDI()) color[n] = 6;
-			else if(nt == F::RBP()) color[n] = 7;
-			else if(nt == F::R8())  color[n] = 8;
-			else if(nt == F::R9())  color[n] = 9;
-			else if(nt == F::R10()) color[n] = 10;
-			else if(nt == F::R11()) color[n] = 11;
-			else if(nt == F::R12()) color[n] = 12;
-			else if(nt == F::R13()) color[n] = 13;
-			else if(nt == F::R14()) color[n] = 14;
-			else if(nt == F::R15()) color[n] = 15;
+			else if(nt == F::R8())  color[n] = 7;
+			else if(nt == F::R9())  color[n] = 8;
+			else if(nt == F::R10()) color[n] = 9;
+			else if(nt == F::R11()) color[n] = 10;
+			else if(nt == F::R12()) color[n] = 11;
+			else if(nt == F::R13()) color[n] = 12;
+			else if(nt == F::R14()) color[n] = 13;
+			else if(nt == F::R15()) color[n] = 14;
+			else if(nt == F::RBP()) assert(0);
 			else color[n] = 0;
 			
 			int curDegree = 0;

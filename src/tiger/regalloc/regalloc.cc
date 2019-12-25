@@ -180,6 +180,7 @@ namespace {
 
 			for(AS::InstrList *instrs = il; instrs; instrs = instrs->tail){
 				AS::Instr *instr = instrs->head;
+				if(!instr) continue;
 				if(instr->kind == AS::Instr::OPER || instr->kind == AS::Instr::MOVE){
 					if(HasTemp(instr->Dst(), spill_head)){
 						ReplaceTemp(instr->Dst(), spill_head, replace_reg);
