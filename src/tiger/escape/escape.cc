@@ -121,8 +121,8 @@ namespace {
 					ESC::EscapeEntry *ent = _env->Look(dynamic_cast<A::SimpleVar*>(var)->sym);
 					assert(ent);
 					if(ent->depth < depth){
-						//var->Print(stderr, depth);
-						//fprintf(stderr, "find escape\n");
+						var->Print(stderr, depth);
+						fprintf(stderr, "find escape\n");
 					 	*(ent->escape) = true;
 					}
 				}

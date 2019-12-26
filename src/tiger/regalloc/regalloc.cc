@@ -168,6 +168,8 @@ namespace {
 		//temp2offset.clear();
 
 		for(; spills; spills = spills->tail){
+			fprintf(stderr, "\E[1;33m[RewriteProgram]\E[0m r%d to be spilled\n", spills->head->Int());
+
 			TEMP::Temp* spill_head = spills->head,
 				*replace_reg = TEMP::Temp::NewTemp();
 			//f->AllocLocal(false);

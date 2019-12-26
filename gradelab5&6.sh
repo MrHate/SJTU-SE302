@@ -86,7 +86,7 @@ for tcase in $(ls $TESTCASEDIR/); do
             score=$((score + result + count / 2))
             rm -f test.out $TESTCASEDIR/${tfileName}.s
         else
-            echo -e "${RED_COLOR}running [$tfileName]${RES}"
+            #echo -e "${RED_COLOR}running [$tfileName]${RES}"
 
             ./test.out >&_tmp.txt
             diff $DIFFOPTION _tmp.txt $REFOUTDIR/${tfileName%.*}.out >&_ref.txt

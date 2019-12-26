@@ -135,11 +135,7 @@ TEMP::TempList *X64Frame::returnSink = nullptr;
 
 T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 	 // (4) 将逃逸参数包括静态链保存至栈帧的指令，以及将非逃逸参数传送到新的临时寄存器的指令。
-	 // The stage above is moved to codegen when generating instructions for T::CallExp.
-
 	 // (5) 保存在此函数内用到的被调用者保护的寄存器，包括返回地址寄存器的存储指令。
-	 // This stage may be delayed to lab6.
-
 	 // (7) 将返回值传送至专用于返回结果的寄存器的指令。
 
 	return new T::SeqStm(viewShift, stm);

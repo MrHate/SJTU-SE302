@@ -1,6 +1,7 @@
 #include "tiger/regalloc/color.h"
 #include <map>
 #include <set>
+#include <vector>
 
 namespace {
 	typedef G::Node<TEMP::Temp> TempNode;
@@ -305,12 +306,15 @@ namespace {
 	void assignColors(TempGraph* ig){
 		spilledNodes = nullptr;
 		while(selectStack){
-			//fprintf(stderr, "start assigning color\n");
-
 			TempNode *n = selectStack->head; selectStack = selectStack->tail;
 			bool usedColors[K + 2] = {0};
-			for(TempNodeList *adjs = n->Succ(); adjs; adjs = adjs->tail)
+
+			fprintf(stderr, "assigning color for r%d: ", n->NodeInfo()->Int());
+			for(TempNodeList *adjs = n->Succ(); adjs; adjs = adjs->tail){
+				fprintf(stderr, "%d,", color[adjs->head]);
 				usedColors[color[adjs->head]] = true;
+			}
+			fprintf(stderr, "\n");
 			int i = 1;
 			bool realSpill = true;
 			for(; i < K + 1; i++)
