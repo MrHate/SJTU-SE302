@@ -20,20 +20,16 @@ void emit(AS::Instr* inst){
 	}
 }
 
-int munchArgs(T::ExpList* args, bool reg){
-	int pushs = 0;
-	if(reg && args){
-		TEMP::TempList *p_reg = F::ArgRegs();
-		for(int i=0;i<6 && args;i++){
-			emit(new AS::MoveInstr( "movq `s0, `d0 # pass arg" + std::to_string(i+1), TL(p_reg->head, nullptr), TL(munchExp(args->head), nullptr)));
-			args = args->tail;
-			p_reg = p_reg->tail;
+TEMP::TempList* munchArgs(T::ExpList* args){
+	TEMP::TempList *usedRegs = nullptr,
+		*p_reg = F::ArgRegs();
+		for(; p_reg && args; p_reg = p_reg->tail, args = args->tail){
+			emit(new AS::MoveInstr( "movq `s0, `d0 # pass args", TL(p_reg->head, nullptr), TL(munchExp(args->head), nullptr)));
+			usedRegs = TL(p_reg->head, usedRegs);
 		}
-	}else if(args){
-		pushs = munchArgs(args->tail, false) + 1;
+	for(; args; args = args->tail)
 		emit(new AS::OperInstr( "pushq `s0", nullptr, TL(munchExp(args->head), nullptr), new AS::Targets(nullptr)));
-	}
-	return pushs;
+	return usedRegs;
 }
 
 TEMP::Temp* munchExp(T::Exp* e){
@@ -55,30 +51,14 @@ TEMP::Temp* munchExp(T::Exp* e){
 											new AS::Targets(nullptr)));
 							else if(e1->right->kind == T::Exp::CONST)
 								emit(new AS::OperInstr(
-											// movq imm(S), D
 											"movq " + std::to_string(dynamic_cast<T::ConstExp*>(e1->right)->consti) + "(`s0), `d0 # line 59",
 											TL(r, nullptr),
 											TL(munchExp(e1->left), nullptr),
 											new AS::Targets(nullptr)));
 							else {
-								emit(new AS::MoveInstr(
-											"movq `s0, `d0 # line 90",
-											TL(F::R14(), nullptr),
-											TL(munchExp(e1->left), nullptr)));
-								emit(new AS::OperInstr(
-											"addq `s0, `d0 # line 94",
-											TL(F::R14(), nullptr),
-											TL(munchExp(e1->right), nullptr),
-											new AS::Targets(nullptr)));
-								emit(new AS::OperInstr(
-											"movq (`s0),`d0 # line 99",
-											TL(r, nullptr),
-											TL(F::R14(), nullptr),
-											new AS::Targets(nullptr)));
-
-								//TEMP::Temp *lr = munchExp(e1->left);
-								//emit(new AS::OperInstr("addq `s0, `d0 # general mem-calculating", TL(lr, nullptr), TL(munchExp(e1->right), nullptr), new AS::Targets(nullptr)));
-								//emit(new AS::OperInstr("movq (`s0), `d0 # line 79", TL(r, nullptr), TL(lr, nullptr), new AS::Targets(nullptr)));
+								TEMP::Temp *lr = munchExp(e1->left);
+								emit(new AS::OperInstr("addq `s0, `d0 # general mem-calculating", TL(lr, nullptr), TL(munchExp(e1->right), TL(lr, nullptr)), new AS::Targets(nullptr)));
+								emit(new AS::OperInstr("movq (`s0), `d0 # line 79", TL(r, nullptr), TL(lr, nullptr), new AS::Targets(nullptr)));
 							}
 							return r;
 						}
@@ -114,8 +94,8 @@ TEMP::Temp* munchExp(T::Exp* e){
 						break;
 					case T::DIV_OP:
 						emit(new AS::MoveInstr("movq `s0, `d0 # doing division ..1", TL(F::RAX(), nullptr), TL(lr, nullptr)));
-						emit(new AS::OperInstr("cqto # doing division ..2", TL(F::RDX(), nullptr), nullptr, new AS::Targets(nullptr)));
-						emit(new AS::OperInstr("idivq `s0 # doing division ..3", nullptr, TL(rr, nullptr), new AS::Targets(nullptr)));
+						emit(new AS::OperInstr("cqto # doing division ..2", TL(F::RDX(), TL(F::RAX(), nullptr)), TL(F::RDX(), nullptr), new AS::Targets(nullptr)));
+						emit(new AS::OperInstr("idivq `s0 # doing division ..3", TL(F::RDX(), TL(F::RAX(), nullptr)), TL(rr, TL(F::RAX(), TL(F::RDX(), nullptr))), new AS::Targets(nullptr)));
 						emit(new AS::MoveInstr("movq `s0, `d0 # doing division ..4", TL(r, nullptr), TL(F::RAX(), nullptr)));
 						return r;
 					default:
@@ -160,15 +140,8 @@ TEMP::Temp* munchExp(T::Exp* e){
 				assert(e0->fun->kind == T::Exp::NAME);
 				T::NameExp *func_name = dynamic_cast<T::NameExp*>(e0->fun);
 				TEMP::Temp *r = F::RV();
-				//TEMP::Temp *r = munchExp(e0->fun);
-				int pushs = munchArgs(e0->args, true);
-				emit(new AS::OperInstr( "call " + func_name->name->Name() + "@PLT", nullptr, nullptr, new AS::Targets(nullptr)));
-				if(pushs){
-					//std::string inst = "addq $"; inst += pushs * 8; isnt += ", %%rsp";
-					emit(new AS::OperInstr( "addq $" + std::to_string(pushs * 8) + ",%rsp # reclaim stack for args", nullptr, nullptr, new AS::Targets(nullptr)));
-				}
-				//emit(new AS::MoveInstr("movq `s0,`d0 # line 175 get return value", TL(r, nullptr), TL(F::RV(), nullptr)));
-				emit(new AS::OperInstr("# caller saves", F::CallerSaves(), nullptr, new AS::Targets(nullptr)));
+				TEMP::TempList *usedRegs = munchArgs(e0->args);
+				emit(new AS::OperInstr( "call " + func_name->name->Name(), TL(F::RV(), F::CallerSaves()), usedRegs, new AS::Targets(nullptr)));
 				return r;
 			}
 		case T::Exp::ESEQ:
