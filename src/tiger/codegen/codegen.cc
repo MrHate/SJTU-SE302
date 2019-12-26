@@ -62,18 +62,23 @@ TEMP::Temp* munchExp(T::Exp* e){
 											new AS::Targets(nullptr)));
 							else {
 								emit(new AS::MoveInstr(
-											"movq `s0, %r14 # line 90",
-											nullptr,
+											"movq `s0, `d0 # line 90",
+											TL(F::R14(), nullptr),
 											TL(munchExp(e1->left), nullptr)));
 								emit(new AS::OperInstr(
-											"addq `s0, %r14 # line 94",
-											nullptr,
+											"addq `s0, `d0 # line 94",
+											TL(F::R14(), nullptr),
 											TL(munchExp(e1->right), nullptr),
 											new AS::Targets(nullptr)));
-								emit(new AS::MoveInstr(
-											"movq (%r14),`d0 # line 99",
+								emit(new AS::OperInstr(
+											"movq (`s0),`d0 # line 99",
 											TL(r, nullptr),
-											nullptr));
+											TL(F::R14(), nullptr),
+											new AS::Targets(nullptr)));
+
+								//TEMP::Temp *lr = munchExp(e1->left);
+								//emit(new AS::OperInstr("addq `s0, `d0 # general mem-calculating", TL(lr, nullptr), TL(munchExp(e1->right), nullptr), new AS::Targets(nullptr)));
+								//emit(new AS::OperInstr("movq (`s0), `d0 # line 79", TL(r, nullptr), TL(lr, nullptr), new AS::Targets(nullptr)));
 							}
 							return r;
 						}
@@ -108,27 +113,17 @@ TEMP::Temp* munchExp(T::Exp* e){
 						oper_str = "imulq";
 						break;
 					case T::DIV_OP:
-						emit(new AS::MoveInstr("movq `s0,`d0 # doing division ..1", TL(F::RAX(), nullptr), TL(lr, nullptr)));
+						emit(new AS::MoveInstr("movq `s0, `d0 # doing division ..1", TL(F::RAX(), nullptr), TL(lr, nullptr)));
 						emit(new AS::OperInstr("cqto # doing division ..2", TL(F::RDX(), nullptr), nullptr, new AS::Targets(nullptr)));
 						emit(new AS::OperInstr("idivq `s0 # doing division ..3", nullptr, TL(rr, nullptr), new AS::Targets(nullptr)));
-						emit(new AS::MoveInstr("movq `s0,`d0 # doing division ..4", TL(r, nullptr), TL(F::RAX(), nullptr)));
+						emit(new AS::MoveInstr("movq `s0, `d0 # doing division ..4", TL(r, nullptr), TL(F::RAX(), nullptr)));
 						return r;
 					default:
 						assert(0);
 				}
-				emit(new AS::MoveInstr( "movq `s0,`d0 # doing binop ..1", TL(F::RAX(), nullptr), TL(lr, nullptr)));
-				emit(new AS::OperInstr( oper_str + " `s0,`d0 # doing binop ..2", TL(F::RAX(), nullptr), TL(rr, nullptr), new AS::Targets(nullptr)));
-				emit(new AS::MoveInstr( "movq `s0,`d0 # doing binop ..3", TL(r,nullptr), TL(F::RAX(), nullptr)));
-				//emit(new AS::MoveInstr(
-				//      "movq `s0, `d0",
-				//      new TEMP::TempList(r, nullptr),
-				//      new TEMP::TempList(lr, nullptr)));
-				//emit(new AS::OperInstr(
-				//      // addq S, D
-				//      oper_str + " `s0, `d0",
-				//      new TEMP::TempList(r, nullptr),
-				//      new TEMP::TempList(rr, nullptr),
-				//      nullptr));
+				emit(new AS::MoveInstr( "movq `s0, `d0 # doing binop ..1", TL(F::RAX(), nullptr), TL(lr, nullptr)));
+				emit(new AS::OperInstr( oper_str + " `s0, `d0 # doing binop ..2", TL(F::RAX(), nullptr), TL(rr, nullptr), new AS::Targets(nullptr)));
+				emit(new AS::MoveInstr( "movq `s0, `d0 # doing binop ..3", TL(r,nullptr), TL(F::RAX(), nullptr)));
 				return r;
 			}
 		case T::Exp::CONST:
@@ -164,7 +159,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 				T::CallExp *e0 = dynamic_cast<T::CallExp*>(e);
 				assert(e0->fun->kind == T::Exp::NAME);
 				T::NameExp *func_name = dynamic_cast<T::NameExp*>(e0->fun);
-				TEMP::Temp *r = TEMP::Temp::NewTemp();
+				TEMP::Temp *r = F::RV();
 				//TEMP::Temp *r = munchExp(e0->fun);
 				int pushs = munchArgs(e0->args, true);
 				emit(new AS::OperInstr( "call " + func_name->name->Name() + "@PLT", nullptr, nullptr, new AS::Targets(nullptr)));
@@ -172,7 +167,7 @@ TEMP::Temp* munchExp(T::Exp* e){
 					//std::string inst = "addq $"; inst += pushs * 8; isnt += ", %%rsp";
 					emit(new AS::OperInstr( "addq $" + std::to_string(pushs * 8) + ",%rsp # reclaim stack for args", nullptr, nullptr, new AS::Targets(nullptr)));
 				}
-				emit(new AS::MoveInstr("movq `s0,`d0 # line 175 get return value", TL(r, nullptr), TL(F::RV(), nullptr)));
+				//emit(new AS::MoveInstr("movq `s0,`d0 # line 175 get return value", TL(r, nullptr), TL(F::RV(), nullptr)));
 				emit(new AS::OperInstr("# caller saves", F::CallerSaves(), nullptr, new AS::Targets(nullptr)));
 				return r;
 			}
@@ -199,29 +194,29 @@ void munchStm(T::Stm* s){
 						assert(e1b->op == T::PLUS_OP);
 						// case MOVE( MEM( BINOP( -, CONST() ) ), e2 )
 						if(e1b->right->kind == T::Exp::CONST){
-							emit(new AS::MoveInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->right)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->left), nullptr))));
+							emit(new AS::OperInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->right)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->left), nullptr)), new AS::Targets(nullptr)));
 						}
 						// case MOVE( MEM( BINOP( CONST(), - ) ), e2 )
 						else if(e1b->left->kind == T::Exp::CONST){
-							emit(new AS::MoveInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->left)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->right), nullptr))));
+							emit(new AS::OperInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1b->left)->consti) + "(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1b->right), nullptr)), new AS::Targets(nullptr)));
 						}
 						else{
-							emit(new AS::MoveInstr("movq `s0,(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1->exp), nullptr))));
+							emit(new AS::OperInstr("movq `s0,(`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1->exp), nullptr)), new AS::Targets(nullptr)));
 						}
 									
 					}
 
 					// case MOVE( MEM(), MEM() )
 					else if(e0->src->kind == T::Exp::MEM){
-						emit(new AS::MoveInstr( "movq (`s0), (`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e0->dst), nullptr))));
+						emit(new AS::OperInstr( "movq (`s0), (`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e0->dst), nullptr)), new AS::Targets(nullptr)));
 					}
 					// case MOVE( MEM( CONST() ), e2 )
 					else if(e1->exp->kind == T::Exp::CONST){
-						emit(new AS::MoveInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1->exp)->consti) + "(`r0)", nullptr, TL(munchExp(e0->src), nullptr)));
+						emit(new AS::OperInstr( "movq `s0, " + std::to_string(dynamic_cast<T::ConstExp*>(e1->exp)->consti) + "(`r0)", nullptr, TL(munchExp(e0->src), nullptr), new AS::Targets(nullptr)));
 					}
 					// case MOVE( MEM(e1), e2)
 					else {
-						emit(new AS::MoveInstr( "movq `s0, (`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1), nullptr))));
+						emit(new AS::OperInstr( "movq `s0, (`s1)", nullptr, TL(munchExp(e0->src), TL(munchExp(e1), nullptr)), new AS::Targets(nullptr)));
 					}
 				}
 				// case MOVE( TEMP(), e2)

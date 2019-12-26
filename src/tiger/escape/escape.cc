@@ -90,8 +90,20 @@ namespace {
 					_findEscapeExp(e->init, depth);
 				}
 				break;
-
 			case A::Exp::FOR:
+				{
+					A::ForExp *e = dynamic_cast<A::ForExp*>(exp);
+					_findEscapeExp(e->lo, depth);
+					_findEscapeExp(e->hi, depth);
+
+					_env->BeginScope();
+					ESC::EscapeEntry *ent = new ESC::EscapeEntry(depth, new bool(true));
+					_env->Enter(e->var, ent);
+					_findEscapeExp(e->body, depth);
+					_env->EndScope();
+				}
+				break;
+
 			case A::Exp::BREAK:
 			case A::Exp::VOID:
 			case A::Exp::NIL:
@@ -108,7 +120,11 @@ namespace {
 				{
 					ESC::EscapeEntry *ent = _env->Look(dynamic_cast<A::SimpleVar*>(var)->sym);
 					assert(ent);
-					if(ent->depth < depth) *(ent->escape) = true;
+					if(ent->depth < depth){
+						//var->Print(stderr, depth);
+						//fprintf(stderr, "find escape\n");
+					 	*(ent->escape) = true;
+					}
 				}
 				break;
 			case A::Var::FIELD:

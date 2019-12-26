@@ -1152,7 +1152,7 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 #ifdef TRASNLATE_DEBUG_MSG
 	errormsg.Error(pos,"vardec[%s] allocating in frame", var->Name().c_str());
 #endif
-	TR::Access *acc = TR::Access::AllocLocal(level, true);
+	TR::Access *acc = TR::Access::AllocLocal(level, escape);
 	venv->Enter(var,new E::VarEntry(acc, init_expty.ty, false));
 
 #ifdef TRASNLATE_DEBUG_MSG

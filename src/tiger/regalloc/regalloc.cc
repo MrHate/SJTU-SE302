@@ -23,7 +23,7 @@ namespace {
 
 	std::string Temp2imm(F::Frame *f, TEMP::Temp *t){
 		if(!temp2offset.count(t)){
-			F::Access *acc = f->AllocLocal(false);
+			F::Access *acc = f->AllocLocal(true);
 			temp2offset[t] = dynamic_cast<F::X64Frame*>(f)->size;
 		}
 		std::string imm = "(" + TEMP::LabelString(f->Name()) + "_framesize-" + std::to_string(temp2offset[t]) + ")";

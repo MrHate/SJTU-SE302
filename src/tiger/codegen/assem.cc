@@ -103,6 +103,22 @@ void MoveInstr::Print(FILE* out, TEMP::Map* m) const {
     }
   }
   std::string result = format(this->assem, this->dst, this->src, nullptr, m);
+
+	// clean moves on same registers
+  if ((dst != nullptr) && (src != nullptr)) {
+    std::size_t srcpos = result.find_first_of('%');
+    if (srcpos != std::string::npos) {
+      std::size_t dstpos = result.find_first_of('%', srcpos + 1);
+      if (dstpos != std::string::npos) {
+        if ((result[srcpos + 1] == result[dstpos + 1]) &&
+            (result[srcpos + 2] == result[dstpos + 2]) &&
+            (result[srcpos + 3] == result[dstpos + 3])){
+					//fprintf(stderr, "clear :%s\n", result.c_str());
+          return;
+				}
+      }
+    }
+  }
   fprintf(out, "%s\n", result.c_str());
 }
 
