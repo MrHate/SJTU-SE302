@@ -258,17 +258,7 @@ AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
 	fs = f->Name()->Name() + "_framesize";
 	iList = last = new AS::InstrList(nullptr, nullptr);
 
-	TEMP::TempList  *csr = F::CalleeSaves(), *csr_bak, *csr_cur;
-	csr_bak = csr_cur = TL(TEMP::Temp::NewTemp(), nullptr);
-	for(;csr;csr_cur = csr_cur->tail = TL(TEMP::Temp::NewTemp(), nullptr), csr=csr->tail)
-		emit(new AS::MoveInstr("movq `s0, `d0 # save calleesaves", TL(csr_cur->head, nullptr), TL(csr->head, nullptr)));
-
 	for(T::StmList *sl = stmList; sl; sl = sl->tail) munchStm(sl->head);
-
-	csr = F::CalleeSaves();
-	csr_cur = csr_bak;
-	for(;csr;csr_cur = csr_cur->tail, csr=csr->tail)
-		emit(new AS::MoveInstr("movq `s0, `d0 # restore calleesaves", TL(csr->head, nullptr), TL(csr_cur->head, nullptr)));
 
   return f->ProcEntryExit2(iList);
 }

@@ -152,6 +152,19 @@ AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
 	if (returnSink == nullptr){
 		returnSink = new TEMP::TempList(RV(), nullptr);
 	}
+
+	// save callee-saves at begin and restore at end
+	TEMP::TempList  *calleeSaves = F::CalleeSaves(), 
+		*calleeSaveTos = new TEMP::TempList(TEMP::Temp::NewTemp(), nullptr);
+	for(TEMP::TempList *tl = calleeSaveTos; calleeSaves; tl = tl->tail = new TEMP::TempList(TEMP::Temp::NewTemp(), nullptr), calleeSaves = calleeSaves->tail)
+		body = new AS::InstrList(new AS::MoveInstr("movq `s0, `d0 # save calleesaves", new TEMP::TempList(tl->head, nullptr), new TEMP::TempList(calleeSaves->head, nullptr)), body);
+
+	AS::InstrList *restore = nullptr;
+	calleeSaves = F::CalleeSaves();
+	for(; calleeSaves; calleeSaveTos = calleeSaveTos->tail, calleeSaves = calleeSaves->tail)
+		restore = new AS::InstrList(new AS::MoveInstr("movq `s0, `d0 # restore calleesaves", new TEMP::TempList(calleeSaves->head, nullptr), new TEMP::TempList(calleeSaveTos->head, nullptr)), restore);
+
+	body = AS::InstrList::Splice(body, restore);
 	return AS::InstrList::Splice(body, new AS::InstrList(new AS::OperInstr("",nullptr,returnSink,nullptr), nullptr));
 }
 
