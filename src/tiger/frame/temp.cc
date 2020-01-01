@@ -79,4 +79,10 @@ void Map::DumpMap(FILE *out) {
   }
 }
 
+bool inTempList(TempList *tl, Temp *t){
+	for(; tl; tl = tl->tail)
+		if(tl->head == t) return true;
+	return false;
+}
+
 }  // namespace TEMP

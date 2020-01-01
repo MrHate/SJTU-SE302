@@ -13,7 +13,6 @@ namespace {
 	void conflictHardRegs(TempGraph* g, std::map<TEMP::Temp*, TempNode*>& temp2node);
 	bool constructGraphFromBottom(G::NodeList<AS::Instr>* instrs);
 	bool tempListEquals(TEMP::TempList* a, TEMP::TempList* b);
-	bool inTempList(TEMP::TempList* tl, TEMP::Temp* t);
 	bool inMoveList(LIVE::MoveList* ml, TempNode* a, TempNode* b);
 	TEMP::TempList* spliceTempList(TEMP::TempList* a, TEMP::TempList* b);
 	TEMP::TempList* filterTempList(TEMP::TempList* src, TEMP::TempList* target);

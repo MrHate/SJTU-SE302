@@ -55,6 +55,8 @@ class LabelList {
   LabelList(Label *h, LabelList *t) : head(h), tail(t) {}
 };
 
+bool inTempList(TempList *tl, Temp *t);
+
 }  // namespace TEMP
 
 #endif

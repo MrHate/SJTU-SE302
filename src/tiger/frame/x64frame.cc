@@ -44,6 +44,8 @@ X64Frame::X64Frame(TEMP::Label *name, U::BoolList *formals):
 		// 1. 在函数内如何看待参数(寄存器还是栈帧存储单元中)
 		// 2. 实现"视角位移"的指令
 
+		remainCalleeSaves = CalleeSaves();
+
 		int parameterPos = 0;
 		AccessList *last = nullptr;
 		while(formals){
@@ -127,6 +129,11 @@ Access* X64Frame::AllocLocal(bool escape){
 		return new InFrameAccess(-size);
 	}
 	else{
+		if(remainCalleeSaves != nullptr){
+			Access *acc = new InRegAccess(remainCalleeSaves->head);
+			remainCalleeSaves = remainCalleeSaves->tail;
+			return acc;
+		}
 		return new InRegAccess(TEMP::Temp::NewTemp());
 	}
 }
@@ -143,7 +150,7 @@ T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 
 AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
 	if (returnSink == nullptr){
-		returnSink = new TEMP::TempList(RSP(), new TEMP::TempList(RV(), CalleeSaves()));
+		returnSink = new TEMP::TempList(RSP(), new TEMP::TempList(RV(), nullptr));
 	}
 	return AS::InstrList::Splice(body, new AS::InstrList(new AS::OperInstr("",nullptr,returnSink,nullptr), nullptr));
 }
@@ -241,8 +248,7 @@ TEMP::TempList* CallerSaves(){
 		_regs = new TEMP::TempList(
 				F::RBX(), new TEMP::TempList(
 					F::R10(), new TEMP::TempList(
-						F::R11(), new TEMP::TempList(
-							F::R12(), ArgRegs()))));
+						F::R11(), ArgRegs())));
 	}
 	return _regs;
 }
@@ -251,11 +257,10 @@ TEMP::TempList* CalleeSaves(){
 	static TEMP::TempList *_regs = nullptr;
 	if(_regs == nullptr){
 		_regs = new TEMP::TempList(
-				F::RBX(), new TEMP::TempList(
 					F::R12(), new TEMP::TempList(
 						F::R13(), new TEMP::TempList(
 							F::R14(), new TEMP::TempList(
-								F::R15(), nullptr)))));
+								F::R15(), nullptr))));
 	}
 	return _regs;
 }

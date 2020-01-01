@@ -309,12 +309,12 @@ namespace {
 			TempNode *n = selectStack->head; selectStack = selectStack->tail;
 			bool usedColors[K + 2] = {0};
 
-			fprintf(stderr, "assigning color for r%d: ", n->NodeInfo()->Int());
+			//fprintf(stderr, "assigning color for r%d: ", n->NodeInfo()->Int());
 			for(TempNodeList *adjs = n->Succ(); adjs; adjs = adjs->tail){
-				fprintf(stderr, "%d,", color[adjs->head]);
+				//fprintf(stderr, "%d,", color[adjs->head]);
 				usedColors[color[adjs->head]] = true;
 			}
-			fprintf(stderr, "\n");
+			//fprintf(stderr, "\n");
 			int i = 1;
 			bool realSpill = true;
 			for(; i < K + 1; i++)

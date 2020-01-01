@@ -64,6 +64,8 @@ class X64Frame : public Frame {
 	int size;
 	T::Stm *viewShift;
 
+	TEMP::TempList *remainCalleeSaves;
+
 	static const int wordSize = 8;
 	
 	X64Frame(TEMP::Label *name, U::BoolList *formals);
