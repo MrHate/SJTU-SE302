@@ -28,8 +28,6 @@ namespace {
 	void combine(TempNode* u, TempNode* v);
 	void assignColors(TempGraph* ig);
 
-	bool inTempList(TEMP::TempList* tl, TEMP::Temp* t);
-
 	TempNodeList* subNodeList(TempNodeList* from, TempNodeList* targets);
 
 	LIVE::MoveList* catMoveList(LIVE::MoveList* a, LIVE::MoveList* b);
@@ -40,7 +38,7 @@ namespace {
 	bool briggs(TempNode* u, TempNode* v);
 
 	const int K = 14;
-	std::string hardRegs[15] = {"none", "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"};
+	std::string hardRegs[15] = {"uncolored", "%rax", "%rbx", "%rcx", "%rdx", "%rsi", "%rdi", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15"};
 	TempNodeList *simplifyWorkList = nullptr,
 							 *freezeWorkList = nullptr,
 							 *spillWorkList = nullptr,
@@ -350,11 +348,6 @@ namespace {
 	bool precolored(TempNode* n){
 		for(TEMP::TempList *tl = F::HardRegs(); tl; tl = tl->tail)
 			if(tl->head == n->NodeInfo()) return true;
-		return false;
-	}
-	bool inTempList(TEMP::TempList* tl, TEMP::Temp* t){
-		for(; tl; tl = tl->tail)
-			if(tl->head == t)return true;
 		return false;
 	}
 	LIVE::MoveList* catMoveList(LIVE::MoveList* a, LIVE::MoveList* b){
