@@ -170,8 +170,7 @@ namespace {
 		for(; spills; spills = spills->tail){
 			fprintf(stderr, "\E[1;33m[RewriteProgram]\E[0m r%d to be spilled\n", spills->head->Int());
 
-			TEMP::Temp* spill_head = spills->head,
-				*replace_reg = TEMP::Temp::NewTemp();
+			TEMP::Temp* spill_head = spills->head;
 			//f->AllocLocal(false);
 			
 			if(!temp2offset.count(spill_head)){
@@ -185,18 +184,20 @@ namespace {
 				if(!instr) continue;
 				if(instr->kind == AS::Instr::OPER || instr->kind == AS::Instr::MOVE){
 					if(HasTemp(instr->Dst(), spill_head)){
+						TEMP::Temp *replace_reg = TEMP::Temp::NewTemp();
 						ReplaceTemp(instr->Dst(), spill_head, replace_reg);
 						AS::Instr* store = new AS::OperInstr(
-								"movq `s0," + imm + "(%rsp)",
+								"movq `s0," + imm + "(%rsp) # rewrited store",
 								nullptr,
 								new TEMP::TempList(replace_reg, nullptr),
 								nullptr);
 						instrs->tail = new AS::InstrList(store, instrs->tail);
 					}
 					else if(HasTemp(instr->Src(), spill_head)){
+						TEMP::Temp *replace_reg = TEMP::Temp::NewTemp();
 						ReplaceTemp(instr->Src(), spill_head, replace_reg);
 						AS::Instr* load = new AS::OperInstr(
-								"movq " + imm + "(%rsp),`d0",
+								"movq " + imm + "(%rsp),`d0 # rewrited load",
 								new TEMP::TempList(replace_reg, nullptr),
 								nullptr,
 								nullptr);
@@ -210,6 +211,13 @@ namespace {
 
 	void showFlowGraph(AS::Instr* inst){
 		inst->Print(stderr, nullptr);
+		fprintf(stderr, "dsts:");
+		for(TEMP::TempList *tl = inst->Dst(); tl; tl = tl->tail)
+			fprintf(stderr, "r%d, ", tl->head->Int());
+		fprintf(stderr, "\nsrcs:");
+		for(TEMP::TempList *tl = inst->Src(); tl; tl = tl->tail)
+			fprintf(stderr, "r%d, ", tl->head->Int());
+		fprintf(stderr, "\n");
 	}
 	void showLiveness(TEMP::Temp* t){
 		std::string regName = "";

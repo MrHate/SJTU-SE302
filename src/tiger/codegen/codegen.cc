@@ -194,7 +194,13 @@ void munchStm(T::Stm* s){
 				}
 				// case MOVE( TEMP(), e2)
 				else if(e0->dst->kind == T::Exp::TEMP){
-					emit(new AS::MoveInstr( "movq `s0, `d0", TL(dynamic_cast<T::TempExp*>(e0->dst)->temp, nullptr), TL(munchExp(e0->src), nullptr)));
+					if(e0->src->kind == T::Exp::CONST){
+						T::ConstExp *e2 = dynamic_cast<T::ConstExp*>(e0->src);
+						std::string imm = '$' + std::to_string(e2->consti);
+						emit(new AS::OperInstr( "movq " + imm + ", `d0 # line 200", TL(dynamic_cast<T::TempExp*>(e0->dst)->temp, nullptr), nullptr, new AS::Targets(nullptr)));
+					}
+					else 
+						emit(new AS::MoveInstr( "movq `s0, `d0 # line 203", TL(dynamic_cast<T::TempExp*>(e0->dst)->temp, nullptr), TL(munchExp(e0->src), nullptr)));
 				}
 				else assert(0);
 			}

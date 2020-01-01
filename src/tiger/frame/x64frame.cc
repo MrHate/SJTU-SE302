@@ -150,7 +150,7 @@ T::Stm* X64Frame::ProcEntryExit1(T::Stm* stm){
 
 AS::InstrList* X64Frame::ProcEntryExit2(AS::InstrList* body){
 	if (returnSink == nullptr){
-		returnSink = new TEMP::TempList(RSP(), new TEMP::TempList(RV(), nullptr));
+		returnSink = new TEMP::TempList(RV(), nullptr);
 	}
 	return AS::InstrList::Splice(body, new AS::InstrList(new AS::OperInstr("",nullptr,returnSink,nullptr), nullptr));
 }
